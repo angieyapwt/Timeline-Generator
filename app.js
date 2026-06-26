@@ -342,6 +342,9 @@ function renderAssumptions() {
       const value = Number(event.target.value || 0);
       if (track === "root") state.assumptions[key] = value;
       else state.assumptions[track][key] = value;
+      updateFromState();
+    });
+    input.addEventListener("blur", () => {
       render();
     });
   });
@@ -376,7 +379,10 @@ function renderSummary({ scenario, tracks }) {
     ["Latest purchase OTP", latestPurchaseOtp ? displayDate(latestPurchaseOtp) : "Not selected"],
     ["Sale OTP to purchase OTP", otpGapDays !== null ? `${otpGapDays} days / ${(otpGapDays / 30.4).toFixed(1)} months` : "Not selected"],
   ];
-  els.summary.innerHTML = metrics.map(([label, value]) => `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`).join("");
+  els.summary.innerHTML = metrics.map(([label, value]) => {
+    const dateClass = /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(value) ? " class=\"date-value\"" : "";
+    return `<div class="metric"><span>${label}</span><strong${dateClass}>${value}</strong></div>`;
+  }).join("");
 
   let status = "Single timeline";
   let statusClass = "";
@@ -395,6 +401,13 @@ function renderSummary({ scenario, tracks }) {
     <div class="note-box"><h3>Assumptions</h3><p>Legal completion is used for CPF refund planning. Extensions and renovation are optional planning items and every duration can be overridden.</p></div>
     <div class="note-box"><h3>Weekend rule</h3><p>${state.skipWeekends ? "Day-based steps skip Saturdays and Sundays. Week and month steps are calendar based." : "Day-based steps use calendar days. Public holidays are ignored."}</p></div>
   `;
+}
+
+function updateFromState() {
+  const result = calculate();
+  renderItemized(result);
+  renderTimeline(result);
+  renderSummary(result);
 }
 
 function renderItemized({ tracks }) {
@@ -460,6 +473,24 @@ async function downloadPdf() {
     page.drawText(String(text), { x, y: textY, size, font, color });
   }
 
+  function drawWrappedText(text, x, textY, maxWidth, size = 10, font = regular, color = navy, lineHeight = size + 3) {
+    const words = String(text).split(" ");
+    let line = "";
+    let currentY = textY;
+    words.forEach((word) => {
+      const next = line ? `${line} ${word}` : word;
+      if (font.widthOfTextAtSize(next, size) > maxWidth && line) {
+        drawText(line, x, currentY, size, font, color);
+        currentY -= lineHeight;
+        line = word;
+      } else {
+        line = next;
+      }
+    });
+    if (line) drawText(line, x, currentY, size, font, color);
+    return currentY - lineHeight;
+  }
+
   function addReportPage() {
     page = pdf.addPage(pageSize);
     y = pageHeight - 48;
@@ -477,6 +508,33 @@ async function downloadPdf() {
   drawText(`Generated on ${displayDate(new Date())}`, margin, y, 10, regular, muted);
   y -= 30;
 
+  const saleTrack = result.tracks.find((track) => track.side === "sale");
+  const purchaseTrack = result.tracks.find((track) => track.side === "purchase");
+  const latestPurchaseOtp = purchaseTrack ? purchaseTrack.events[0].date : null;
+  const otpGapDays = saleTrack && purchaseTrack ? daysBetween(saleTrack.events[0].date, purchaseTrack.events[0].date) : null;
+  const summaryTiles = [
+    ["Scenario", scenarios[state.scenario].label],
+    ["Sale legal completion", saleTrack ? displayDate(saleTrack.legalCompletion) : "Not selected"],
+    ["Purchase legal completion", purchaseTrack ? displayDate(purchaseTrack.legalCompletion) : "Not selected"],
+    ["Latest purchase OTP", latestPurchaseOtp ? displayDate(latestPurchaseOtp) : "Not selected"],
+    ["Sale OTP to purchase OTP", otpGapDays !== null ? `${otpGapDays} days / ${(otpGapDays / 30.4).toFixed(1)} months` : "Not selected"],
+  ];
+  const tileGap = 8;
+  const tileWidth = (pageWidth - margin * 2 - tileGap * 4) / 5;
+  const tileHeight = 74;
+  summaryTiles.forEach(([label, value], index) => {
+    const x = margin + index * (tileWidth + tileGap);
+    page.drawRectangle({ x, y: y - tileHeight, width: tileWidth, height: tileHeight, color: paper, borderColor: rgb(217 / 255, 214 / 255, 205 / 255), borderWidth: 1 });
+    drawWrappedText(label, x + 8, y - 18, tileWidth - 16, 6.8, bold, muted, 8);
+    drawWrappedText(value, x + 8, y - 43, tileWidth - 16, 10.5, bold, navy, 12);
+  });
+  y -= tileHeight + 28;
+
+  drawText("DATES", margin, y, 8, bold, gold);
+  y -= 18;
+  drawText("Itemised Timeline", margin, y, 16, bold, navy);
+  y -= 22;
+
   result.tracks.forEach((track) => {
     page.drawRectangle({ x: margin, y: y - 20, width: pageWidth - margin * 2, height: 30, color: paper });
     drawText(track.label, margin + 12, y - 8, 11, bold, navy);
@@ -492,6 +550,40 @@ async function downloadPdf() {
     y -= 12;
   });
 
+  if (y < 260) addReportPage();
+  y -= 4;
+  drawText("INFOGRAPHIC", margin, y, 8, bold, gold);
+  y -= 18;
+  drawText(scenarios[state.scenario].label, margin, y, 16, bold, navy);
+  y -= 28;
+
+  result.tracks.forEach((track) => {
+    if (y < 170) addReportPage();
+    const x = margin;
+    const cardWidth = pageWidth - margin * 2;
+    const cardHeight = 112;
+    page.drawRectangle({ x, y: y - cardHeight, width: cardWidth, height: cardHeight, color: rgb(1, 253 / 255, 250 / 255), borderColor: rgb(217 / 255, 214 / 255, 205 / 255), borderWidth: 1 });
+    drawText(track.label, x + 14, y - 22, 15, bold, navy);
+    drawText(`${daysBetween(track.events[0].date, track.events.at(-1).date)} calendar days`, x + 14, y - 40, 8.5, regular, muted);
+    const lineX = x + 18;
+    const lineY = y - 68;
+    const lineWidth = cardWidth - 36;
+    page.drawRectangle({ x: lineX, y: lineY, width: lineWidth, height: 4, color: gold });
+    page.drawRectangle({ x: lineX, y: lineY, width: Math.max(24, lineWidth * 0.36), height: 4, color: navy });
+    const start = track.events[0].date;
+    const end = track.events.at(-1).date;
+    const span = Math.max(1, end - start);
+    track.events.forEach((event) => {
+      const pct = (event.date - start) / span;
+      const dotX = lineX + pct * lineWidth;
+      page.drawCircle({ x: dotX, y: lineY + 2, size: 5, color: navy, borderColor: gold, borderWidth: 2 });
+      drawWrappedText(event.name, dotX - 34, lineY - 16, 68, 7, bold, navy, 8);
+      drawText(displayDate(event.date), dotX - 28, lineY - 31, 6.6, regular, muted);
+      if (event.durationAfter) drawText(event.durationAfter, dotX - 18, lineY - 44, 6.6, bold, gold);
+    });
+    y -= cardHeight + 14;
+  });
+
   if (y < 120) addReportPage();
   y -= 4;
   drawText("Assumptions", margin, y, 12, bold, navy);
@@ -501,10 +593,7 @@ async function downloadPdf() {
     `Weekend rule: ${state.skipWeekends ? "day-based steps skip Saturdays and Sundays" : "day-based steps use calendar days"}`,
     "Public holidays ignored. Durations are editable planning assumptions.",
   ];
-  const saleTrack = result.tracks.find((track) => track.side === "sale");
-  const purchaseTrack = result.tracks.find((track) => track.side === "purchase");
   if (saleTrack && purchaseTrack) {
-    const otpGapDays = daysBetween(saleTrack.events[0].date, purchaseTrack.events[0].date);
     assumptionLines.unshift(`Sale OTP to purchase OTP: ${otpGapDays} days / ${(otpGapDays / 30.4).toFixed(1)} months`);
   }
   assumptionLines.forEach((line) => {

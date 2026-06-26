@@ -268,13 +268,13 @@ input[type="text"] {
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 20px;
 }
 
 .metric {
-  padding: 14px 16px;
-  min-height: 82px;
+  padding: 10px 12px;
+  min-height: 76px;
   background: #fbf8f1;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -286,14 +286,22 @@ input[type="text"] {
 
 .metric span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
+  line-height: 1.15;
 }
 
 .metric strong {
   color: var(--navy);
-  font-size: clamp(16px, 1.5vw, 21px);
+  font-size: clamp(14px, 1.2vw, 18px);
   line-height: 1.15;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.metric .date-value {
+  white-space: nowrap;
+  font-size: clamp(13px, 1.1vw, 17px);
 }
 
 .itemized-section {
@@ -565,6 +573,16 @@ input[type="text"] {
 
   .track {
     min-width: 640px;
+  }
+}
+
+@media (min-width: 681px) and (max-width: 1120px) {
+  .timeline-graphic.tracks-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .track {
+    min-width: 0;
   }
 }
 
