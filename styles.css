@@ -280,7 +280,7 @@ input[type="text"] {
   border-radius: 8px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 10px;
 }
 
@@ -308,6 +308,94 @@ input[type="text"] {
   margin-bottom: 24px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--line);
+}
+
+.checklist-section {
+  margin-bottom: 22px;
+}
+
+.checklist-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fffdfa;
+}
+
+.checklist-card.warning {
+  border-color: rgba(180, 95, 6, 0.42);
+}
+
+.checklist-card.clear {
+  border-color: rgba(15, 143, 114, 0.34);
+}
+
+.checklist-heading {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  background: #fbf8f1;
+  border-bottom: 1px solid var(--line);
+}
+
+.checklist-heading span {
+  color: var(--gold);
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.checklist-heading strong {
+  color: var(--navy);
+  font-size: 18px;
+}
+
+.checklist-items {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.check-item {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  padding: 14px;
+  border-right: 1px solid rgba(217, 214, 205, 0.72);
+}
+
+.check-item:last-child {
+  border-right: 0;
+}
+
+.check-item > span {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.check-item.ok > span {
+  background: rgba(15, 143, 114, 0.12);
+  color: var(--success);
+}
+
+.check-item.warn > span {
+  background: rgba(180, 95, 6, 0.14);
+  color: var(--warning);
+}
+
+.check-item strong {
+  color: var(--navy);
+  font-size: 13px;
+}
+
+.check-item p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .section-heading {
@@ -418,7 +506,7 @@ input[type="text"] {
 }
 
 .timeline-graphic.tracks-2 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   align-items: stretch;
 }
 
@@ -559,6 +647,19 @@ input[type="text"] {
 
   .itemized-grid {
     grid-template-columns: 1fr;
+  }
+
+  .checklist-items {
+    grid-template-columns: 1fr;
+  }
+
+  .check-item {
+    border-right: 0;
+    border-bottom: 1px solid rgba(217, 214, 205, 0.72);
+  }
+
+  .check-item:last-child {
+    border-bottom: 0;
   }
 
   .timeline-graphic.tracks-2 {

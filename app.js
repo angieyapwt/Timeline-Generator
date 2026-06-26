@@ -80,6 +80,7 @@ const els = {
   timelineTitle: document.querySelector("#timelineTitle"),
   timelineGraphic: document.querySelector("#timelineGraphic"),
   itemizedTimeline: document.querySelector("#itemizedTimeline"),
+  timelineChecklist: document.querySelector("#timelineChecklist"),
   summary: document.querySelector("#summary"),
   comparison: document.querySelector("#comparison"),
   bufferStatus: document.querySelector("#bufferStatus"),
@@ -163,6 +164,17 @@ function readInputDate(value, fallback) {
 
 function daysBetween(a, b) {
   return Math.round((stripTime(b) - stripTime(a)) / MS_DAY);
+}
+
+function workingDaysBetween(a, b) {
+  let current = stripTime(a);
+  const end = stripTime(b);
+  let days = 0;
+  while (current < end) {
+    current = addDays(current, 1);
+    if (current.getDay() !== 0 && current.getDay() !== 6) days += 1;
+  }
+  return days;
 }
 
 function stripTime(date) {
@@ -281,6 +293,7 @@ function render() {
   renderInputs();
   renderAssumptions();
   const result = calculate();
+  renderChecklist(result);
   renderItemized(result);
   renderTimeline(result);
   renderSummary(result);
@@ -405,9 +418,75 @@ function renderSummary({ scenario, tracks }) {
 
 function updateFromState() {
   const result = calculate();
+  renderChecklist(result);
   renderItemized(result);
   renderTimeline(result);
   renderSummary(result);
+}
+
+function eventDate(track, name) {
+  return track?.events.find((event) => event.name === name)?.date || null;
+}
+
+function buildChecklist({ tracks }) {
+  const sale = tracks.find((track) => track.side === "sale");
+  const purchase = tracks.find((track) => track.side === "purchase");
+  const saleExercise = eventDate(sale, "Exercise OTP");
+  const purchaseExercise = eventDate(purchase, "Exercise OTP");
+  const saleSubmission = eventDate(sale, "HDB Submission");
+  const saleNeedsHdbExtension = sale?.key === "hdbSale" && Number(state.assumptions.hdbSale.extensionMonths) > 0;
+  const completionGapDays = sale && purchase ? daysBetween(sale.legalCompletion, purchase.legalCompletion) : null;
+  const completionGapWorkingDays = sale && purchase ? workingDaysBetween(sale.legalCompletion, purchase.legalCompletion) : null;
+  const purchaseIsHdb = purchase?.key === "hdbPurchase";
+  const requiredCompletionText = purchaseIsHdb ? "15 working days" : "3 weeks";
+  const completionOk = sale && purchase ? (purchaseIsHdb ? completionGapWorkingDays >= 15 : completionGapDays >= 21) : true;
+
+  return [
+    {
+      title: "HDB extension sequencing",
+      detail: saleNeedsHdbExtension
+        ? "Purchase Exercise OTP must be before sale HDB resale submission."
+        : "Only applies when HDB sale extension is required.",
+      ok: !saleNeedsHdbExtension || (purchaseExercise && saleSubmission && purchaseExercise < saleSubmission),
+    },
+    {
+      title: "ABSD timing",
+      detail: "Purchase OTP must be exercised after sale OTP is exercised.",
+      ok: !sale || !purchase || (saleExercise && purchaseExercise && purchaseExercise > saleExercise),
+    },
+    {
+      title: "Completion buffer",
+      detail: `Completion gap must be at least ${requiredCompletionText}.`,
+      ok: completionOk,
+      meta: sale && purchase
+        ? `${completionGapDays} calendar days${purchaseIsHdb ? ` / ${completionGapWorkingDays} working days` : ""}`
+        : "Single timeline",
+    },
+  ];
+}
+
+function renderChecklist(result) {
+  const items = buildChecklist(result);
+  const hasWarning = items.some((item) => !item.ok);
+  els.timelineChecklist.innerHTML = `
+    <div class="checklist-card ${hasWarning ? "warning" : "clear"}">
+      <div class="checklist-heading">
+        <span>${hasWarning ? "Warnings to review" : "Clear to proceed"}</span>
+        <strong>${hasWarning ? "Timeline needs attention" : "Timeline checks passed"}</strong>
+      </div>
+      <div class="checklist-items">
+        ${items.map((item) => `
+          <div class="check-item ${item.ok ? "ok" : "warn"}">
+            <span>${item.ok ? "✓" : "!"}</span>
+            <div>
+              <strong>${item.title}</strong>
+              <p>${item.detail}${item.meta ? ` ${item.meta}.` : ""}</p>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
 }
 
 function renderItemized({ tracks }) {
@@ -496,6 +575,91 @@ async function downloadPdf() {
     y = pageHeight - 48;
   }
 
+  function drawPdfChecklist(items) {
+    if (y < 150) addReportPage();
+    const hasWarning = items.some((item) => !item.ok);
+    page.drawRectangle({ x: margin, y: y - 32, width: pageWidth - margin * 2, height: 32, color: paper, borderColor: hasWarning ? rgb(180 / 255, 95 / 255, 6 / 255) : rgb(15 / 255, 143 / 255, 114 / 255), borderWidth: 1 });
+    drawText(hasWarning ? "Timeline needs attention" : "Timeline checks passed", margin + 12, y - 20, 12, bold, navy);
+    y -= 46;
+    items.forEach((item) => {
+      if (y < 90) addReportPage();
+      const markColor = item.ok ? rgb(15 / 255, 143 / 255, 114 / 255) : rgb(180 / 255, 95 / 255, 6 / 255);
+      page.drawCircle({ x: margin + 8, y: y - 2, size: 6, color: markColor });
+      drawText(item.ok ? "OK" : "!", margin + 3, y - 5, item.ok ? 5 : 8, bold, rgb(1, 1, 1));
+      drawText(item.title, margin + 24, y, 9.5, bold, navy);
+      const detail = `${item.detail}${item.meta ? ` ${item.meta}.` : ""}`;
+      y = drawWrappedText(detail, margin + 24, y - 13, pageWidth - margin * 2 - 32, 8, regular, muted, 10);
+      y -= 6;
+    });
+    y -= 10;
+  }
+
+  function drawPdfItemisedCards() {
+    if (y < 230) addReportPage();
+    drawText("DATES", margin, y, 8, bold, gold);
+    y -= 18;
+    drawText("Itemised Timeline", margin, y, 16, bold, navy);
+    y -= 22;
+    const gap = 14;
+    const cardWidth = result.tracks.length > 1 ? (pageWidth - margin * 2 - gap) / 2 : pageWidth - margin * 2;
+    const rowHeight = 36;
+    const maxRows = Math.max(...result.tracks.map((track) => track.events.length));
+    const cardHeight = 34 + maxRows * rowHeight;
+    if (y - cardHeight < 70) addReportPage();
+    result.tracks.forEach((track, index) => {
+      const x = margin + (result.tracks.length > 1 ? index * (cardWidth + gap) : 0);
+      page.drawRectangle({ x, y: y - cardHeight, width: cardWidth, height: cardHeight, color: rgb(1, 253 / 255, 250 / 255), borderColor: rgb(217 / 255, 214 / 255, 205 / 255), borderWidth: 1 });
+      page.drawRectangle({ x, y: y - 34, width: cardWidth, height: 34, color: paper });
+      drawText(track.label, x + 12, y - 21, 12, bold, navy);
+      track.events.forEach((event, rowIndex) => {
+        const rowY = y - 34 - rowIndex * rowHeight;
+        page.drawLine({ start: { x, y: rowY }, end: { x: x + cardWidth, y: rowY }, thickness: 0.5, color: rgb(217 / 255, 214 / 255, 205 / 255) });
+        drawText(event.name, x + 12, rowY - 15, 8, bold, navy);
+        if (event.durationAfter) drawText(`${event.durationAfter} to next step`, x + 12, rowY - 27, 6.8, bold, gold);
+        drawText(displayDate(event.date), x + cardWidth - 72, rowY - 19, 8, bold, navy);
+      });
+    });
+    y -= cardHeight + 24;
+  }
+
+  function drawPdfInfographic() {
+    if (y < 240) addReportPage();
+    drawText("INFOGRAPHIC", margin, y, 8, bold, gold);
+    y -= 18;
+    drawText(scenarios[state.scenario].label, margin, y, 16, bold, navy);
+    y -= 28;
+
+    result.tracks.forEach((track) => {
+      if (y < 170) addReportPage();
+      const x = margin;
+      const cardWidth = pageWidth - margin * 2;
+      const cardHeight = 120;
+      page.drawRectangle({ x, y: y - cardHeight, width: cardWidth, height: cardHeight, color: rgb(1, 253 / 255, 250 / 255), borderColor: rgb(217 / 255, 214 / 255, 205 / 255), borderWidth: 1 });
+      drawText(track.label, x + 14, y - 22, 15, bold, navy);
+      drawText(`${daysBetween(track.events[0].date, track.events.at(-1).date)} calendar days`, x + 14, y - 40, 8.5, regular, muted);
+      const lineX = x + 18;
+      const lineY = y - 68;
+      const lineWidth = cardWidth - 36;
+      page.drawRectangle({ x: lineX, y: lineY, width: lineWidth, height: 4, color: gold });
+      page.drawRectangle({ x: lineX, y: lineY, width: Math.max(24, lineWidth * 0.36), height: 4, color: navy });
+      const start = track.events[0].date;
+      const end = track.events.at(-1).date;
+      const span = Math.max(1, end - start);
+      track.events.forEach((event, index) => {
+        const pct = (event.date - start) / span;
+        const rawDotX = lineX + pct * lineWidth;
+        const labelWidth = 84;
+        const labelX = Math.min(Math.max(rawDotX - labelWidth / 2, x + 10), x + cardWidth - labelWidth - 10);
+        const labelY = index % 2 === 0 ? lineY - 16 : lineY - 52;
+        page.drawCircle({ x: rawDotX, y: lineY + 2, size: 5, color: navy, borderColor: gold, borderWidth: 2 });
+        drawWrappedText(event.name, labelX, labelY, labelWidth, 6.6, bold, navy, 7.6);
+        drawText(displayDate(event.date), labelX, labelY - 16, 6.2, regular, muted);
+        if (event.durationAfter) drawText(event.durationAfter, labelX, labelY - 28, 6.2, bold, gold);
+      });
+      y -= cardHeight + 14;
+    });
+  }
+
   page.drawRectangle({ x: 0, y: pageHeight - 132, width: pageWidth, height: 132, color: navy });
   y -= 12;
   drawText("Timeline Report", margin, y, 28, bold, rgb(1, 1, 1));
@@ -530,59 +694,9 @@ async function downloadPdf() {
   });
   y -= tileHeight + 28;
 
-  drawText("DATES", margin, y, 8, bold, gold);
-  y -= 18;
-  drawText("Itemised Timeline", margin, y, 16, bold, navy);
-  y -= 22;
-
-  result.tracks.forEach((track) => {
-    page.drawRectangle({ x: margin, y: y - 20, width: pageWidth - margin * 2, height: 30, color: paper });
-    drawText(track.label, margin + 12, y - 8, 11, bold, navy);
-    y -= 46;
-    track.events.forEach((event) => {
-      if (y < 90) addReportPage();
-      page.drawCircle({ x: margin + 7, y: y + 3, size: 4, borderColor: gold, borderWidth: 1.5 });
-      const eventTitle = event.durationAfter ? `${event.name} (${event.durationAfter})` : event.name;
-      drawText(eventTitle, margin + 24, y, 10, bold, navy);
-      drawText(displayDate(event.date), pageWidth - margin - 112, y, 10, regular, muted);
-      y -= 24;
-    });
-    y -= 12;
-  });
-
-  if (y < 260) addReportPage();
-  y -= 4;
-  drawText("INFOGRAPHIC", margin, y, 8, bold, gold);
-  y -= 18;
-  drawText(scenarios[state.scenario].label, margin, y, 16, bold, navy);
-  y -= 28;
-
-  result.tracks.forEach((track) => {
-    if (y < 170) addReportPage();
-    const x = margin;
-    const cardWidth = pageWidth - margin * 2;
-    const cardHeight = 112;
-    page.drawRectangle({ x, y: y - cardHeight, width: cardWidth, height: cardHeight, color: rgb(1, 253 / 255, 250 / 255), borderColor: rgb(217 / 255, 214 / 255, 205 / 255), borderWidth: 1 });
-    drawText(track.label, x + 14, y - 22, 15, bold, navy);
-    drawText(`${daysBetween(track.events[0].date, track.events.at(-1).date)} calendar days`, x + 14, y - 40, 8.5, regular, muted);
-    const lineX = x + 18;
-    const lineY = y - 68;
-    const lineWidth = cardWidth - 36;
-    page.drawRectangle({ x: lineX, y: lineY, width: lineWidth, height: 4, color: gold });
-    page.drawRectangle({ x: lineX, y: lineY, width: Math.max(24, lineWidth * 0.36), height: 4, color: navy });
-    const start = track.events[0].date;
-    const end = track.events.at(-1).date;
-    const span = Math.max(1, end - start);
-    track.events.forEach((event) => {
-      const pct = (event.date - start) / span;
-      const dotX = lineX + pct * lineWidth;
-      page.drawCircle({ x: dotX, y: lineY + 2, size: 5, color: navy, borderColor: gold, borderWidth: 2 });
-      drawWrappedText(event.name, dotX - 34, lineY - 16, 68, 7, bold, navy, 8);
-      drawText(displayDate(event.date), dotX - 28, lineY - 31, 6.6, regular, muted);
-      if (event.durationAfter) drawText(event.durationAfter, dotX - 18, lineY - 44, 6.6, bold, gold);
-    });
-    y -= cardHeight + 14;
-  });
+  drawPdfChecklist(buildChecklist(result));
+  drawPdfItemisedCards();
+  drawPdfInfographic();
 
   if (y < 120) addReportPage();
   y -= 4;
