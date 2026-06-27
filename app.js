@@ -385,6 +385,8 @@ function renderSummary({ scenario, tracks }) {
   const bufferDays = sale && purchase ? daysBetween(sale.legalCompletion, purchase.legalCompletion) : null;
   const latestPurchaseOtp = purchase ? purchase.events[0].date : null;
   const otpGapDays = sale && purchase ? daysBetween(sale.events[0].date, purchase.events[0].date) : null;
+  const checklistItems = buildChecklist({ tracks });
+  const warningCount = checklistItems.filter((item) => !item.ok).length;
   const metrics = [
     ["Scenario", scenario.label],
     ["Sale legal completion", sale ? displayDate(sale.legalCompletion) : "Not selected"],
@@ -392,10 +394,14 @@ function renderSummary({ scenario, tracks }) {
     ["Latest purchase OTP", latestPurchaseOtp ? displayDate(latestPurchaseOtp) : "Not selected"],
     ["Sale OTP to purchase OTP", otpGapDays !== null ? `${otpGapDays} days / ${(otpGapDays / 30.4).toFixed(1)} months` : "Not selected"],
   ];
-  els.summary.innerHTML = metrics.map(([label, value]) => {
-    const dateClass = /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(value) ? " class=\"date-value\"" : "";
-    return `<div class="metric"><span>${label}</span><strong${dateClass}>${value}</strong></div>`;
-  }).join("");
+  const metricHtml = ([label, value], extraClass = "") => {
+    const dateClass = /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(value) ? " date-value" : "";
+    return `<div class="metric ${extraClass}"><span>${label}</span><strong class="${dateClass.trim()}">${value}</strong></div>`;
+  };
+  els.summary.innerHTML = `
+    <div class="summary-row scenario-row">${metricHtml(metrics[0], "scenario-metric")}</div>
+    <div class="summary-row detail-row">${metrics.slice(1).map((metric) => metricHtml(metric)).join("")}</div>
+  `;
 
   let status = "Single timeline";
   let statusClass = "";
@@ -411,8 +417,8 @@ function renderSummary({ scenario, tracks }) {
   els.bufferStatus.className = `status-pill ${statusClass}`;
 
   els.comparison.innerHTML = `
-    <div class="note-box"><h3>Assumptions</h3><p>Legal completion is used for CPF refund planning. Extensions and renovation are optional planning items and every duration can be overridden.</p></div>
-    <div class="note-box"><h3>Weekend rule</h3><p>${state.skipWeekends ? "Day-based steps skip Saturdays and Sundays. Week and month steps are calendar based." : "Day-based steps use calendar days. Public holidays are ignored."}</p></div>
+    <div class="note-box"><h3>Funds readiness</h3><p>Confirm CPF refund timing, loan disbursement, stamp duty and cash shortfall before exercising the purchase OTP.</p></div>
+    <div class="note-box"><h3>Next action</h3><p>${warningCount ? `${warningCount} timeline item${warningCount > 1 ? "s" : ""} need attention before proceeding.` : "Timeline checks are clear. Keep the lawyer, lender and CPF dates aligned before OTP exercise."}</p></div>
   `;
 }
 
@@ -475,10 +481,11 @@ function renderChecklist(result) {
         <strong>${hasWarning ? "Timeline needs attention" : "Timeline checks passed"}</strong>
       </div>
       <div class="checklist-items">
-        ${items.map((item) => `
+        ${items.map((item, index) => `
           <div class="check-item ${item.ok ? "ok" : "warn"}">
-            <span>${item.ok ? "✓" : "!"}</span>
+            <span>${index + 1}</span>
             <div>
+              <small>${item.ok ? "Clear" : "Warning"}</small>
               <strong>${item.title}</strong>
               <p>${item.detail}${item.meta ? ` ${item.meta}.` : ""}</p>
             </div>
@@ -552,6 +559,11 @@ async function downloadPdf() {
     page.drawText(String(text), { x, y: textY, size, font, color });
   }
 
+  function drawRightText(text, rightX, textY, size = 10, font = regular, color = navy) {
+    const value = String(text);
+    page.drawText(value, { x: rightX - font.widthOfTextAtSize(value, size), y: textY, size, font, color });
+  }
+
   function drawWrappedText(text, x, textY, maxWidth, size = 10, font = regular, color = navy, lineHeight = size + 3) {
     const words = String(text).split(" ");
     let line = "";
@@ -578,20 +590,24 @@ async function downloadPdf() {
   function drawPdfChecklist(items) {
     if (y < 150) addReportPage();
     const hasWarning = items.some((item) => !item.ok);
-    page.drawRectangle({ x: margin, y: y - 32, width: pageWidth - margin * 2, height: 32, color: paper, borderColor: hasWarning ? rgb(180 / 255, 95 / 255, 6 / 255) : rgb(15 / 255, 143 / 255, 114 / 255), borderWidth: 1 });
-    drawText(hasWarning ? "Timeline needs attention" : "Timeline checks passed", margin + 12, y - 20, 12, bold, navy);
-    y -= 46;
-    items.forEach((item) => {
-      if (y < 90) addReportPage();
+    const cardGap = 10;
+    const cardWidth = (pageWidth - margin * 2 - cardGap * 2) / 3;
+    const cardHeight = 92;
+    drawText(hasWarning ? "Timeline needs attention" : "Timeline checks passed", margin, y, 13, bold, navy);
+    y -= 18;
+    if (y - cardHeight < 70) addReportPage();
+    items.forEach((item, index) => {
+      const x = margin + index * (cardWidth + cardGap);
       const markColor = item.ok ? rgb(15 / 255, 143 / 255, 114 / 255) : rgb(180 / 255, 95 / 255, 6 / 255);
-      page.drawCircle({ x: margin + 8, y: y - 2, size: 6, color: markColor });
-      drawText(item.ok ? "OK" : "!", margin + 3, y - 5, item.ok ? 5 : 8, bold, rgb(1, 1, 1));
-      drawText(item.title, margin + 24, y, 9.5, bold, navy);
+      page.drawRectangle({ x, y: y - cardHeight, width: cardWidth, height: cardHeight, color: paper, borderColor: markColor, borderWidth: 0.8 });
+      page.drawCircle({ x: x + 17, y: y - 18, size: 10, color: markColor });
+      drawText(String(index + 1), x + 14, y - 22, 8, bold, rgb(1, 1, 1));
+      drawRightText(item.ok ? "CLEAR" : "WARNING", x + cardWidth - 10, y - 16, 6.8, bold, markColor);
+      drawWrappedText(item.title, x + 12, y - 38, cardWidth - 24, 8.6, bold, navy, 9.5);
       const detail = `${item.detail}${item.meta ? ` ${item.meta}.` : ""}`;
-      y = drawWrappedText(detail, margin + 24, y - 13, pageWidth - margin * 2 - 32, 8, regular, muted, 10);
-      y -= 6;
+      drawWrappedText(detail, x + 12, y - 60, cardWidth - 24, 6.7, regular, muted, 8);
     });
-    y -= 10;
+    y -= cardHeight + 24;
   }
 
   function drawPdfItemisedCards() {
@@ -684,13 +700,19 @@ async function downloadPdf() {
     ["Sale OTP to purchase OTP", otpGapDays !== null ? `${otpGapDays} days / ${(otpGapDays / 30.4).toFixed(1)} months` : "Not selected"],
   ];
   const tileGap = 8;
-  const tileWidth = (pageWidth - margin * 2 - tileGap * 4) / 5;
-  const tileHeight = 74;
-  summaryTiles.forEach(([label, value], index) => {
+  const tileHeight = 58;
+  const scenarioTileHeight = 62;
+  const fullWidth = pageWidth - margin * 2;
+  page.drawRectangle({ x: margin, y: y - scenarioTileHeight, width: fullWidth, height: scenarioTileHeight, color: paper, borderColor: rgb(217 / 255, 214 / 255, 205 / 255), borderWidth: 1 });
+  drawRightText(summaryTiles[0][0], margin + fullWidth - 10, y - 16, 6.8, bold, muted);
+  drawWrappedText(summaryTiles[0][1], margin + 10, y - 32, fullWidth * 0.76, 14, bold, navy, 15.5);
+  y -= scenarioTileHeight + 8;
+  const tileWidth = (fullWidth - tileGap * 3) / 4;
+  summaryTiles.slice(1).forEach(([label, value], index) => {
     const x = margin + index * (tileWidth + tileGap);
     page.drawRectangle({ x, y: y - tileHeight, width: tileWidth, height: tileHeight, color: paper, borderColor: rgb(217 / 255, 214 / 255, 205 / 255), borderWidth: 1 });
-    drawWrappedText(label, x + 8, y - 18, tileWidth - 16, 6.8, bold, muted, 8);
-    drawWrappedText(value, x + 8, y - 43, tileWidth - 16, 10.5, bold, navy, 12);
+    drawRightText(label, x + tileWidth - 8, y - 15, 6.2, bold, muted);
+    drawWrappedText(value, x + 8, y - 36, tileWidth - 16, 9.6, bold, navy, 11);
   });
   y -= tileHeight + 28;
 
@@ -700,12 +722,12 @@ async function downloadPdf() {
 
   if (y < 120) addReportPage();
   y -= 4;
-  drawText("Assumptions", margin, y, 12, bold, navy);
+  drawText("Planning Notes", margin, y, 12, bold, navy);
   y -= 20;
   const assumptionLines = [
     `CPF refund buffer: ${state.includeBuffer ? `${state.assumptions.cpfBufferDays} days from sale legal completion` : "not enforced"}`,
-    `Weekend rule: ${state.skipWeekends ? "day-based steps skip Saturdays and Sundays" : "day-based steps use calendar days"}`,
-    "Public holidays ignored. Durations are editable planning assumptions.",
+    "Funds readiness: confirm CPF refund, loan disbursement, stamp duty and cash shortfall before exercising purchase OTP.",
+    "Coordination point: keep lawyer, lender and CPF dates aligned before OTP exercise.",
   ];
   if (saleTrack && purchaseTrack) {
     assumptionLines.unshift(`Sale OTP to purchase OTP: ${otpGapDays} days / ${(otpGapDays / 30.4).toFixed(1)} months`);

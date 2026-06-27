@@ -267,13 +267,27 @@ input[type="text"] {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: 1fr;
+  gap: 10px;
   margin-bottom: 20px;
 }
 
+.summary-row {
+  display: grid;
+  gap: 10px;
+}
+
+.scenario-row {
+  grid-template-columns: 1fr;
+}
+
+.detail-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .metric {
-  padding: 10px 12px;
+  position: relative;
+  padding: 28px 12px 10px;
   min-height: 76px;
   background: #fbf8f1;
   border: 1px solid var(--line);
@@ -285,10 +299,15 @@ input[type="text"] {
 }
 
 .metric span {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  max-width: calc(100% - 24px);
   color: var(--muted);
   font-size: 10px;
   font-weight: 700;
   line-height: 1.15;
+  text-align: right;
 }
 
 .metric strong {
@@ -297,6 +316,16 @@ input[type="text"] {
   line-height: 1.15;
   overflow-wrap: normal;
   word-break: keep-all;
+}
+
+.scenario-metric {
+  min-height: 86px;
+}
+
+.scenario-metric strong {
+  max-width: min(620px, 78%);
+  font-size: clamp(24px, 2.6vw, 34px);
+  line-height: 1.06;
 }
 
 .metric .date-value {
@@ -318,7 +347,9 @@ input[type="text"] {
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
-  background: #fffdfa;
+  background:
+    linear-gradient(90deg, rgba(17, 28, 54, 0.05), rgba(200, 155, 60, 0.08)),
+    #fffdfa;
 }
 
 .checklist-card.warning {
@@ -352,27 +383,32 @@ input[type="text"] {
 .checklist-items {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
 }
 
 .check-item {
   display: grid;
-  grid-template-columns: 28px 1fr;
-  gap: 10px;
+  grid-template-columns: 34px 1fr;
+  gap: 12px;
   padding: 14px;
-  border-right: 1px solid rgba(217, 214, 205, 0.72);
+  border: 1px solid rgba(217, 214, 205, 0.82);
+  border-radius: 8px;
+  background: rgba(255, 253, 250, 0.9);
+  box-shadow: 0 8px 18px rgba(17, 28, 54, 0.05);
 }
 
 .check-item:last-child {
-  border-right: 0;
+  border-right: 1px solid rgba(217, 214, 205, 0.82);
 }
 
 .check-item > span {
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -387,8 +423,32 @@ input[type="text"] {
 }
 
 .check-item strong {
+  display: block;
   color: var(--navy);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.check-item small {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  margin-bottom: 7px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.check-item.ok small {
+  background: rgba(15, 143, 114, 0.11);
+  color: var(--success);
+}
+
+.check-item.warn small {
+  background: rgba(180, 95, 6, 0.13);
+  color: var(--warning);
 }
 
 .check-item p {
@@ -409,7 +469,7 @@ input[type="text"] {
 
 .itemized-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 14px;
 }
 
@@ -642,6 +702,10 @@ input[type="text"] {
 
   .summary-grid,
   .compare-section {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -654,12 +718,11 @@ input[type="text"] {
   }
 
   .check-item {
-    border-right: 0;
-    border-bottom: 1px solid rgba(217, 214, 205, 0.72);
+    border-right: 1px solid rgba(217, 214, 205, 0.82);
   }
 
   .check-item:last-child {
-    border-bottom: 0;
+    border-bottom: 1px solid rgba(217, 214, 205, 0.82);
   }
 
   .timeline-graphic.tracks-2 {
@@ -706,6 +769,16 @@ input[type="text"] {
   .summary-grid,
   .compare-section {
     grid-template-columns: 1fr;
+  }
+
+  .detail-row {
+    grid-template-columns: 1fr;
+  }
+
+  .scenario-metric strong {
+    max-width: 100%;
+    padding-top: 4px;
+    font-size: 24px;
   }
 
   .report-actions {
