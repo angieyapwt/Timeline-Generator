@@ -287,8 +287,8 @@ input[type="text"] {
 
 .metric {
   position: relative;
-  padding: 28px 12px 10px;
-  min-height: 76px;
+  padding: 28px 12px 12px;
+  min-height: 72px;
   background: #fbf8f1;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -301,36 +301,43 @@ input[type="text"] {
 .metric span {
   position: absolute;
   top: 10px;
+  left: 12px;
   right: 12px;
   max-width: calc(100% - 24px);
   color: var(--muted);
   font-size: 10px;
   font-weight: 700;
   line-height: 1.15;
-  text-align: right;
+  text-align: left;
 }
 
 .metric strong {
   color: var(--navy);
-  font-size: clamp(14px, 1.2vw, 18px);
+  font-size: clamp(14px, 1.05vw, 16px);
   line-height: 1.15;
   overflow-wrap: normal;
   word-break: keep-all;
 }
 
 .scenario-metric {
-  min-height: 86px;
+  min-height: 70px;
 }
 
 .scenario-metric strong {
-  max-width: min(620px, 78%);
-  font-size: clamp(24px, 2.6vw, 34px);
+  max-width: 100%;
+  font-size: clamp(22px, 2.1vw, 28px);
   line-height: 1.06;
+  white-space: nowrap;
 }
 
 .metric .date-value {
   white-space: nowrap;
-  font-size: clamp(13px, 1.1vw, 17px);
+  font-size: clamp(14px, 1.05vw, 16px);
+}
+
+.detail-row .metric:last-child strong {
+  font-size: clamp(13px, 0.98vw, 15px);
+  white-space: nowrap;
 }
 
 .itemized-section {
@@ -353,7 +360,10 @@ input[type="text"] {
 }
 
 .checklist-card.warning {
-  border-color: rgba(180, 95, 6, 0.42);
+  border-color: rgba(179, 38, 30, 0.58);
+  background:
+    linear-gradient(90deg, rgba(179, 38, 30, 0.09), rgba(200, 155, 60, 0.08)),
+    #fffdfa;
 }
 
 .checklist-card.clear {
@@ -418,8 +428,8 @@ input[type="text"] {
 }
 
 .check-item.warn > span {
-  background: rgba(180, 95, 6, 0.14);
-  color: var(--warning);
+  background: rgba(179, 38, 30, 0.14);
+  color: var(--danger);
 }
 
 .check-item strong {
@@ -447,8 +457,12 @@ input[type="text"] {
 }
 
 .check-item.warn small {
-  background: rgba(180, 95, 6, 0.13);
-  color: var(--warning);
+  background: rgba(179, 38, 30, 0.13);
+  color: var(--danger);
+}
+
+.check-item.warn {
+  border-color: rgba(179, 38, 30, 0.34);
 }
 
 .check-item p {
@@ -614,13 +628,13 @@ input[type="text"] {
 
 .milestones {
   position: relative;
-  min-height: 164px;
+  min-height: 228px;
 }
 
 .milestone {
   position: absolute;
-  top: calc(-18px + (var(--row) * 64px));
-  width: 128px;
+  top: -9px;
+  width: 160px;
   transform: translateX(-50%);
   text-align: center;
 }
@@ -635,6 +649,11 @@ input[type="text"] {
   box-shadow: 0 0 0 4px #fff;
 }
 
+.milestone-label {
+  margin-top: calc(10px + (var(--level) * 58px));
+  padding: 0 4px;
+}
+
 .milestone strong {
   display: block;
   color: var(--navy);
@@ -647,6 +666,8 @@ input[type="text"] {
   margin-top: 5px;
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
 .compare-section {
@@ -778,7 +799,7 @@ input[type="text"] {
   .scenario-metric strong {
     max-width: 100%;
     padding-top: 4px;
-    font-size: 24px;
+    font-size: 17px;
   }
 
   .report-actions {
@@ -854,6 +875,11 @@ input[type="text"] {
     left: -29px;
     top: 12px;
     margin: 0;
+  }
+
+  .milestone-label {
+    margin-top: 0;
+    padding: 0;
   }
 
   .milestone strong {

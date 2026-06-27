@@ -523,9 +523,13 @@ function renderTimeline({ scenario, tracks }) {
     const start = track.events[0].date;
     const end = track.events.at(-1).date;
     const span = Math.max(1, end - start);
+    const lastPctByLevel = [-100, -100, -100];
     const milestones = track.events.map((event, index) => {
       const pct = ((event.date - start) / span) * 100;
-      return `<div class="milestone" style="left:clamp(64px, ${pct}%, calc(100% - 64px)); --row:${index % 2}"><div class="dot"></div><strong>${event.name}</strong><span>${displayDate(event.date)}</span>${event.durationAfter ? `<em>${event.durationAfter}</em>` : ""}</div>`;
+      let level = lastPctByLevel.findIndex((lastPct) => pct - lastPct >= 26);
+      if (level < 0) level = index % lastPctByLevel.length;
+      lastPctByLevel[level] = pct;
+      return `<div class="milestone" style="left:clamp(85px, ${pct}%, calc(100% - 85px)); --level:${level}"><div class="dot"></div><div class="milestone-label"><strong>${event.name}</strong><span>${displayDate(event.date)}</span>${event.durationAfter ? `<em>${event.durationAfter}</em>` : ""}</div></div>`;
     }).join("");
     return `
       <article class="track">
@@ -704,15 +708,15 @@ async function downloadPdf() {
   const scenarioTileHeight = 62;
   const fullWidth = pageWidth - margin * 2;
   page.drawRectangle({ x: margin, y: y - scenarioTileHeight, width: fullWidth, height: scenarioTileHeight, color: paper, borderColor: rgb(217 / 255, 214 / 255, 205 / 255), borderWidth: 1 });
-  drawRightText(summaryTiles[0][0], margin + fullWidth - 10, y - 16, 6.8, bold, muted);
-  drawWrappedText(summaryTiles[0][1], margin + 10, y - 32, fullWidth * 0.76, 14, bold, navy, 15.5);
+  drawText(summaryTiles[0][0], margin + 10, y - 16, 6.8, bold, muted);
+  drawWrappedText(summaryTiles[0][1], margin + 10, y - 36, fullWidth - 20, 13, bold, navy, 14.5);
   y -= scenarioTileHeight + 8;
   const tileWidth = (fullWidth - tileGap * 3) / 4;
   summaryTiles.slice(1).forEach(([label, value], index) => {
     const x = margin + index * (tileWidth + tileGap);
     page.drawRectangle({ x, y: y - tileHeight, width: tileWidth, height: tileHeight, color: paper, borderColor: rgb(217 / 255, 214 / 255, 205 / 255), borderWidth: 1 });
-    drawRightText(label, x + tileWidth - 8, y - 15, 6.2, bold, muted);
-    drawWrappedText(value, x + 8, y - 36, tileWidth - 16, 9.6, bold, navy, 11);
+    drawText(label, x + 8, y - 15, 6.2, bold, muted);
+    drawWrappedText(value, x + 8, y - 36, tileWidth - 16, index === 3 ? 8.4 : 9.4, bold, navy, 10.5);
   });
   y -= tileHeight + 28;
 
