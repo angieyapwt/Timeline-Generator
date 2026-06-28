@@ -612,7 +612,8 @@ function renderTimeline({ scenario, tracks }) {
       return { event, visualPct, level };
     });
     const milestones = positionedEvents.map(({ event, visualPct, level }) => {
-      return `<div class="milestone" style="left:clamp(60px, ${visualPct}%, calc(100% - 60px)); --level:${level}"><div class="dot"></div><div class="milestone-label"><strong>${event.name}</strong><span>${displayDate(event.date)}</span></div></div>`;
+      const mobileDuration = event.durationAfter ? `<span class="mobile-duration-chip">${event.durationAfter}</span>` : `<span class="mobile-duration-chip empty"></span>`;
+      return `<div class="milestone" style="left:clamp(60px, ${visualPct}%, calc(100% - 60px)); --level:${level}">${mobileDuration}<div class="dot"></div><div class="milestone-label"><strong>${event.name}</strong><span>${displayDate(event.date)}</span></div></div>`;
     }).join("");
     const durationChips = positionedEvents.slice(0, -1).map(({ event, visualPct }, index) => {
       if (!event.durationAfter) return "";

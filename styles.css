@@ -392,7 +392,7 @@ input[type="text"] {
 
 .checklist-items {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   padding: 14px;
 }
@@ -691,6 +691,10 @@ input[type="text"] {
   box-shadow: 0 1px 4px rgba(17, 28, 54, 0.08);
 }
 
+.mobile-duration-chip {
+  display: none;
+}
+
 .compare-section {
   margin-top: 20px;
   display: grid;
@@ -755,10 +759,6 @@ input[type="text"] {
     grid-template-columns: 1fr;
   }
 
-  .checklist-items {
-    grid-template-columns: 1fr;
-  }
-
   .check-item {
     border-right: 1px solid rgba(217, 214, 205, 0.82);
   }
@@ -817,6 +817,10 @@ input[type="text"] {
     grid-template-columns: 1fr;
   }
 
+  .checklist-items {
+    grid-template-columns: 1fr;
+  }
+
   .scenario-metric strong {
     max-width: 100%;
     padding-top: 4px;
@@ -857,11 +861,12 @@ input[type="text"] {
 
   .track-line {
     position: absolute;
-    left: 27px;
-    top: 112px;
-    bottom: 24px;
+    left: 50%;
+    top: 116px;
+    bottom: 30px;
     width: 6px;
     height: auto;
+    transform: translateX(-50%);
   }
 
   .track-fill {
@@ -872,18 +877,22 @@ input[type="text"] {
     display: grid;
     gap: 0;
     min-height: 0;
-    padding-left: 34px;
+    padding-left: 0;
   }
 
   .milestone {
     position: relative;
+    display: grid;
+    grid-template-columns: minmax(78px, 0.9fr) 34px minmax(120px, 1.1fr);
+    column-gap: 10px;
+    align-items: start;
     top: auto;
     left: auto !important;
     width: auto;
     min-height: 78px;
     transform: none;
     text-align: left;
-    padding: 8px 0 14px 18px;
+    padding: 8px 0 14px;
     border-bottom: 1px solid rgba(217, 214, 205, 0.74);
   }
 
@@ -892,13 +901,17 @@ input[type="text"] {
   }
 
   .dot {
-    position: absolute;
-    left: -29px;
-    top: 12px;
+    position: relative;
+    left: auto;
+    top: 3px;
+    grid-column: 2;
+    justify-self: center;
     margin: 0;
+    z-index: 2;
   }
 
   .milestone-label {
+    grid-column: 3;
     margin-top: 0;
     padding: 0;
     border: 0;
@@ -915,12 +928,31 @@ input[type="text"] {
   }
 
   .duration-chip {
-    top: auto;
-    left: -12px !important;
-    transform: none;
-    margin-top: 34px;
-    padding: 2px 5px;
-    font-size: 10px;
+    display: none;
+  }
+
+  .mobile-duration-chip {
+    display: block;
+    grid-column: 1;
+    justify-self: end;
+    align-self: start;
+    margin-top: 6px;
+    padding: 3px 6px;
+    max-width: 78px;
+    border-radius: 999px;
+    border: 1px solid rgba(200, 155, 60, 0.45);
+    background: #fffdfa;
+    color: var(--gold);
+    font-size: 9.5px;
+    font-weight: 800;
+    line-height: 1.15;
+    text-align: center;
+    white-space: normal;
+    box-shadow: 0 1px 4px rgba(17, 28, 54, 0.08);
+  }
+
+  .mobile-duration-chip.empty {
+    visibility: hidden;
   }
 
   .itemized-row {
