@@ -417,8 +417,8 @@ function renderSummary({ scenario, tracks }) {
   els.bufferStatus.className = `status-pill ${statusClass}`;
 
   els.comparison.innerHTML = `
-    <div class="note-box"><h3>Funds readiness</h3><p>Confirm CPF refund timing, loan disbursement, stamp duty and cash shortfall before exercising the purchase OTP.</p></div>
-    <div class="note-box"><h3>Next action</h3><p>${warningCount ? `${warningCount} timeline item${warningCount > 1 ? "s" : ""} need attention before proceeding.` : "Timeline checks are clear. Keep the lawyer, lender and CPF dates aligned before OTP exercise."}</p></div>
+    <div class="note-box"><h3>Funds readiness</h3><p>Confirm CPF refund timing, stamp duty and cash shortfall before exercising the purchase OTP.</p></div>
+    <div class="note-box"><h3>Next action</h3><p>${warningCount ? `Review ${warningCount} timeline item${warningCount > 1 ? "s" : ""} before proceeding.` : "No warnings found. You can proceed with this timeline plan."}</p></div>
   `;
 }
 
@@ -516,6 +516,11 @@ function renderItemized({ tracks }) {
   }).join("");
 }
 
+function trackDurationLabel(start, end) {
+  const days = daysBetween(start, end);
+  return `${days} calendar days / ${(days / 30.4).toFixed(1)} months`;
+}
+
 function renderTimeline({ scenario, tracks }) {
   els.timelineTitle.textContent = scenario.label;
   els.timelineGraphic.className = `timeline-graphic tracks-${tracks.length}`;
@@ -524,16 +529,19 @@ function renderTimeline({ scenario, tracks }) {
     const end = track.events.at(-1).date;
     const span = Math.max(1, end - start);
     const lastPctByLevel = [-100, -100, -100];
+    let previousVisualPct = -100;
     const milestones = track.events.map((event, index) => {
       const pct = ((event.date - start) / span) * 100;
-      let level = lastPctByLevel.findIndex((lastPct) => pct - lastPct >= 26);
+      const visualPct = Math.min(100, Math.max(pct, previousVisualPct + 7));
+      previousVisualPct = visualPct;
+      let level = lastPctByLevel.findIndex((lastPct) => visualPct - lastPct >= 22);
       if (level < 0) level = index % lastPctByLevel.length;
-      lastPctByLevel[level] = pct;
-      return `<div class="milestone" style="left:clamp(85px, ${pct}%, calc(100% - 85px)); --level:${level}"><div class="dot"></div><div class="milestone-label"><strong>${event.name}</strong><span>${displayDate(event.date)}</span>${event.durationAfter ? `<em>${event.durationAfter}</em>` : ""}</div></div>`;
+      lastPctByLevel[level] = visualPct;
+      return `<div class="milestone" style="left:clamp(60px, ${visualPct}%, calc(100% - 60px)); --level:${level}"><div class="dot"></div><div class="milestone-label"><strong>${event.name}</strong><span>${displayDate(event.date)}</span>${event.durationAfter ? `<em>${event.durationAfter}</em>` : ""}</div></div>`;
     }).join("");
     return `
       <article class="track">
-        <div class="track-title"><strong>${track.label}</strong><span>${daysBetween(start, end)} calendar days</span></div>
+        <div class="track-title"><strong>${track.label}</strong><span>${trackDurationLabel(start, end)}</span></div>
         <div class="track-line"><div class="track-fill"></div></div>
         <div class="milestones">${milestones}</div>
       </article>
@@ -558,6 +566,15 @@ async function downloadPdf() {
   const goldLight = rgb(240 / 255, 211 / 255, 138 / 255);
   const muted = rgb(103 / 255, 113 / 255, 134 / 255);
   const paper = rgb(248 / 255, 244 / 255, 238 / 255);
+  const background = rgb(245 / 255, 241 / 255, 233 / 255);
+  const card = rgb(1, 253 / 255, 250 / 255);
+  const line = rgb(217 / 255, 214 / 255, 205 / 255);
+  const success = rgb(15 / 255, 143 / 255, 114 / 255);
+  const danger = rgb(179 / 255, 38 / 255, 30 / 255);
+
+  function drawPageBackground() {
+    page.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: background });
+  }
 
   function drawText(text, x, textY, size = 10, font = regular, color = navy) {
     page.drawText(String(text), { x, y: textY, size, font, color });
@@ -588,6 +605,7 @@ async function downloadPdf() {
 
   function addReportPage() {
     page = pdf.addPage(pageSize);
+    drawPageBackground();
     y = pageHeight - 48;
   }
 
@@ -602,7 +620,7 @@ async function downloadPdf() {
     if (y - cardHeight < 70) addReportPage();
     items.forEach((item, index) => {
       const x = margin + index * (cardWidth + cardGap);
-      const markColor = item.ok ? rgb(15 / 255, 143 / 255, 114 / 255) : rgb(180 / 255, 95 / 255, 6 / 255);
+      const markColor = item.ok ? success : danger;
       page.drawRectangle({ x, y: y - cardHeight, width: cardWidth, height: cardHeight, color: paper, borderColor: markColor, borderWidth: 0.8 });
       page.drawCircle({ x: x + 17, y: y - 18, size: 10, color: markColor });
       drawText(String(index + 1), x + 14, y - 22, 8, bold, rgb(1, 1, 1));
@@ -620,26 +638,25 @@ async function downloadPdf() {
     y -= 18;
     drawText("Itemised Timeline", margin, y, 16, bold, navy);
     y -= 22;
-    const gap = 14;
-    const cardWidth = result.tracks.length > 1 ? (pageWidth - margin * 2 - gap) / 2 : pageWidth - margin * 2;
+    const cardWidth = pageWidth - margin * 2;
     const rowHeight = 36;
-    const maxRows = Math.max(...result.tracks.map((track) => track.events.length));
-    const cardHeight = 34 + maxRows * rowHeight;
-    if (y - cardHeight < 70) addReportPage();
-    result.tracks.forEach((track, index) => {
-      const x = margin + (result.tracks.length > 1 ? index * (cardWidth + gap) : 0);
-      page.drawRectangle({ x, y: y - cardHeight, width: cardWidth, height: cardHeight, color: rgb(1, 253 / 255, 250 / 255), borderColor: rgb(217 / 255, 214 / 255, 205 / 255), borderWidth: 1 });
+    result.tracks.forEach((track) => {
+      const cardHeight = 34 + track.events.length * rowHeight;
+      if (y - cardHeight < 70) addReportPage();
+      const x = margin;
+      page.drawRectangle({ x, y: y - cardHeight, width: cardWidth, height: cardHeight, color: card, borderColor: line, borderWidth: 1 });
       page.drawRectangle({ x, y: y - 34, width: cardWidth, height: 34, color: paper });
       drawText(track.label, x + 12, y - 21, 12, bold, navy);
       track.events.forEach((event, rowIndex) => {
         const rowY = y - 34 - rowIndex * rowHeight;
-        page.drawLine({ start: { x, y: rowY }, end: { x: x + cardWidth, y: rowY }, thickness: 0.5, color: rgb(217 / 255, 214 / 255, 205 / 255) });
+        page.drawLine({ start: { x, y: rowY }, end: { x: x + cardWidth, y: rowY }, thickness: 0.5, color: line });
         drawText(event.name, x + 12, rowY - 15, 8, bold, navy);
         if (event.durationAfter) drawText(`${event.durationAfter} to next step`, x + 12, rowY - 27, 6.8, bold, gold);
-        drawText(displayDate(event.date), x + cardWidth - 72, rowY - 19, 8, bold, navy);
+        drawRightText(displayDate(event.date), x + cardWidth - 12, rowY - 19, 8, bold, navy);
       });
+      y -= cardHeight + 12;
     });
-    y -= cardHeight + 24;
+    y -= 12;
   }
 
   function drawPdfInfographic() {
@@ -653,10 +670,10 @@ async function downloadPdf() {
       if (y < 170) addReportPage();
       const x = margin;
       const cardWidth = pageWidth - margin * 2;
-      const cardHeight = 120;
-      page.drawRectangle({ x, y: y - cardHeight, width: cardWidth, height: cardHeight, color: rgb(1, 253 / 255, 250 / 255), borderColor: rgb(217 / 255, 214 / 255, 205 / 255), borderWidth: 1 });
+      const cardHeight = 150;
+      page.drawRectangle({ x, y: y - cardHeight, width: cardWidth, height: cardHeight, color: card, borderColor: line, borderWidth: 1 });
       drawText(track.label, x + 14, y - 22, 15, bold, navy);
-      drawText(`${daysBetween(track.events[0].date, track.events.at(-1).date)} calendar days`, x + 14, y - 40, 8.5, regular, muted);
+      drawText(trackDurationLabel(track.events[0].date, track.events.at(-1).date), x + 14, y - 40, 8.5, regular, muted);
       const lineX = x + 18;
       const lineY = y - 68;
       const lineWidth = cardWidth - 36;
@@ -665,26 +682,38 @@ async function downloadPdf() {
       const start = track.events[0].date;
       const end = track.events.at(-1).date;
       const span = Math.max(1, end - start);
+      const lastPctByLevel = [-100, -100, -100];
+      let previousVisualPct = -100;
       track.events.forEach((event, index) => {
         const pct = (event.date - start) / span;
-        const rawDotX = lineX + pct * lineWidth;
-        const labelWidth = 84;
+        const visualPct = Math.min(1, Math.max(pct, previousVisualPct + 0.07));
+        previousVisualPct = visualPct;
+        let level = lastPctByLevel.findIndex((lastPct) => visualPct - lastPct >= 0.22);
+        if (level < 0) level = index % lastPctByLevel.length;
+        lastPctByLevel[level] = visualPct;
+        const rawDotX = lineX + visualPct * lineWidth;
+        const labelWidth = 72;
         const labelX = Math.min(Math.max(rawDotX - labelWidth / 2, x + 10), x + cardWidth - labelWidth - 10);
-        const labelY = index % 2 === 0 ? lineY - 16 : lineY - 52;
-        page.drawCircle({ x: rawDotX, y: lineY + 2, size: 5, color: navy, borderColor: gold, borderWidth: 2 });
-        drawWrappedText(event.name, labelX, labelY, labelWidth, 6.6, bold, navy, 7.6);
-        drawText(displayDate(event.date), labelX, labelY - 16, 6.2, regular, muted);
-        if (event.durationAfter) drawText(event.durationAfter, labelX, labelY - 28, 6.2, bold, gold);
+        const labelY = lineY - 18 - level * 32;
+        page.drawCircle({ x: rawDotX, y: lineY + 2, size: 4, color: navy, borderColor: gold, borderWidth: 1.5 });
+        drawWrappedText(event.name, labelX, labelY, labelWidth, 6, bold, navy, 7);
+        drawText(displayDate(event.date), labelX, labelY - 14, 5.8, regular, muted);
+        if (event.durationAfter) drawText(event.durationAfter, labelX, labelY - 25, 5.8, bold, gold);
       });
       y -= cardHeight + 14;
     });
   }
 
+  drawPageBackground();
   page.drawRectangle({ x: 0, y: pageHeight - 132, width: pageWidth, height: 132, color: navy });
   y -= 12;
   drawText("Timeline Report", margin, y, 28, bold, rgb(1, 1, 1));
   y -= 24;
   drawText("Angie Yap | 83963088 | CEA No.: R067805D", margin, y, 10, regular, rgb(1, 1, 1));
+  page.drawRectangle({ x: pageWidth - margin - 170, y: pageHeight - 96, width: 170, height: 52, color: rgb(47 / 255, 58 / 255, 86 / 255), borderColor: rgb(83 / 255, 91 / 255, 111 / 255), borderWidth: 1 });
+  drawText("Prepared by", pageWidth - margin - 154, pageHeight - 62, 7, bold, goldLight);
+  drawText("Angie Yap", pageWidth - margin - 154, pageHeight - 78, 14, bold, rgb(1, 1, 1));
+  drawText("83963088 | CEA No.: R067805D", pageWidth - margin - 154, pageHeight - 91, 7, regular, rgb(1, 1, 1));
   y = pageHeight - 168;
 
   drawText(scenarios[state.scenario].label, margin, y, 16, bold, navy);
@@ -730,8 +759,8 @@ async function downloadPdf() {
   y -= 20;
   const assumptionLines = [
     `CPF refund buffer: ${state.includeBuffer ? `${state.assumptions.cpfBufferDays} days from sale legal completion` : "not enforced"}`,
-    "Funds readiness: confirm CPF refund, loan disbursement, stamp duty and cash shortfall before exercising purchase OTP.",
-    "Coordination point: keep lawyer, lender and CPF dates aligned before OTP exercise.",
+    "Funds readiness: confirm CPF refund, stamp duty and cash shortfall before exercising purchase OTP.",
+    "Next action: review warnings first. If there are no warnings, this timeline can be used for planning.",
   ];
   if (saleTrack && purchaseTrack) {
     assumptionLines.unshift(`Sale OTP to purchase OTP: ${otpGapDays} days / ${(otpGapDays / 30.4).toFixed(1)} months`);
