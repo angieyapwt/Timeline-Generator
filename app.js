@@ -50,10 +50,37 @@ const trackMeta = {
 
 const defaultAssumptions = {
   cpfBufferDays: 21,
-  hdbSale: { otpExerciseDays: 21, resaleSubmissionDays: 90, hdbAcceptanceDays: 28, endorsementDays: 14, completionDays: 42, extensionMonths: 0 },
-  hdbPurchase: { otpExerciseDays: 21, resaleSubmissionDays: 30, hdbAcceptanceDays: 28, endorsementDays: 14, completionDays: 42, extensionMonths: 0, renovationMonths: 0 },
-  privateSale: { otpExerciseWeeks: 3, completionWeeks: 13, extensionMonths: 0 },
-  privatePurchase: { otpExerciseWeeks: 3, completionWeeks: 13, extensionMonths: 0, renovationMonths: 0 },
+  hdbSale: { otpExerciseDays: 21, resaleSubmissionDays: 60, hdbAcceptanceDays: 28, endorsementDays: 14, completionWeeks: 8, extensionMonths: 0 },
+  hdbPurchase: { otpExerciseDays: 21, resaleSubmissionDays: 60, hdbAcceptanceDays: 28, endorsementDays: 14, completionWeeks: 8, extensionMonths: 0, renovationMonths: 0 },
+  privateSale: { otpExerciseWeeks: 2, completionWeeks: 12, extensionMonths: 0 },
+  privatePurchase: { otpExerciseWeeks: 2, completionWeeks: 12, extensionMonths: 0, renovationMonths: 0 },
+};
+
+const singaporePublicHolidays = {
+  "2026-01-01": "New Year's Day",
+  "2026-02-17": "Chinese New Year",
+  "2026-02-18": "Chinese New Year",
+  "2026-03-21": "Hari Raya Puasa",
+  "2026-04-03": "Good Friday",
+  "2026-05-01": "Labour Day",
+  "2026-05-27": "Hari Raya Haji",
+  "2026-06-01": "Vesak Day observed",
+  "2026-08-10": "National Day observed",
+  "2026-11-08": "Deepavali",
+  "2026-11-09": "Deepavali observed",
+  "2026-12-25": "Christmas Day",
+  "2027-01-01": "New Year's Day",
+  "2027-02-06": "Chinese New Year",
+  "2027-02-07": "Chinese New Year",
+  "2027-02-08": "Chinese New Year observed",
+  "2027-03-10": "Hari Raya Puasa",
+  "2027-03-26": "Good Friday",
+  "2027-05-01": "Labour Day",
+  "2027-05-17": "Hari Raya Haji",
+  "2027-05-20": "Vesak Day",
+  "2027-08-09": "National Day",
+  "2027-10-28": "Deepavali",
+  "2027-12-25": "Christmas Day",
 };
 
 const state = {
@@ -161,6 +188,16 @@ function displayDate(date) {
   return date.toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" }).replaceAll(" ", "-");
 }
 
+function holidayKey(date) {
+  return isoDate(stripTime(date));
+}
+
+function completionBlocker(date) {
+  const day = date.getDay();
+  if (day === 0 || day === 6) return day === 0 ? "Sunday" : "Saturday";
+  return singaporePublicHolidays[holidayKey(date)] || "";
+}
+
 function formatInputDate(value) {
   return displayDate(parseDate(value));
 }
@@ -207,7 +244,7 @@ function stepsFor(trackKey) {
       { name: "Exercise OTP", duration: a.resaleSubmissionDays, unit: "workingDays" },
       { name: "HDB Submission", duration: a.hdbAcceptanceDays, unit: "workingDays" },
       { name: "Acceptance by HDB", duration: a.endorsementDays, unit: "days" },
-      { name: "Endorsement", duration: a.completionDays, unit: "days" },
+      { name: "Endorsement", duration: a.completionWeeks, unit: "weeks" },
       { name: "Legal Completion", duration: a.extensionMonths, unit: "months" },
       { name: "Extension Completion", optional: true, duration: trackMeta[trackKey].side === "purchase" ? a.renovationMonths : 0, unit: "months" },
       ...(trackMeta[trackKey].side === "purchase" ? [{ name: "Renovation Ready", optional: true, duration: 0, unit: "days" }] : []),
@@ -468,6 +505,11 @@ function buildChecklist({ tracks }) {
   const purchaseIsHdb = purchase?.key === "hdbPurchase";
   const requiredCompletionText = purchaseIsHdb ? "15 working days" : "3 weeks";
   const completionOk = sale && purchase ? (purchaseIsHdb ? completionGapWorkingDays >= 15 : completionGapDays >= 21) : true;
+  const completionIssues = [sale, purchase]
+    .filter(Boolean)
+    .map((track) => ({ track, reason: completionBlocker(track.legalCompletion) }))
+    .filter((item) => item.reason);
+  const completionIssueText = completionIssues.map((item) => `${item.track.label}: ${displayDate(item.track.legalCompletion)} (${item.reason})`).join("; ");
 
   return [
     {
@@ -489,6 +531,14 @@ function buildChecklist({ tracks }) {
       meta: sale && purchase
         ? `${completionGapDays} calendar days${purchaseIsHdb ? ` / ${completionGapWorkingDays} working days` : ""}`
         : "Single timeline",
+    },
+    {
+      title: "Completion date",
+      detail: completionIssues.length
+        ? "Legal completion should not fall on a weekend or Singapore public holiday."
+        : "Legal completion is on a weekday and not in the Singapore PH list.",
+      ok: completionIssues.length === 0,
+      meta: completionIssueText,
     },
   ];
 }
@@ -641,26 +691,31 @@ async function downloadPdf() {
   }
 
   function drawPdfChecklist(items) {
-    if (y < 122) addReportPage();
     const hasWarning = items.some((item) => !item.ok);
     const cardGap = 10;
-    const cardWidth = (pageWidth - margin * 2 - cardGap * 2) / 3;
-    const cardHeight = 70;
+    const cardColumns = 2;
+    const cardRows = Math.ceil(items.length / cardColumns);
+    const cardWidth = (pageWidth - margin * 2 - cardGap * (cardColumns - 1)) / cardColumns;
+    const cardHeight = 58;
+    const blockHeight = 15 + cardRows * cardHeight + (cardRows - 1) * cardGap + 16;
+    if (y - blockHeight < 70) addReportPage();
     drawText(hasWarning ? "Timeline needs attention" : "Timeline checks passed", margin, y, 11.5, bold, navy);
     y -= 15;
-    if (y - cardHeight < 70) addReportPage();
     items.forEach((item, index) => {
-      const x = margin + index * (cardWidth + cardGap);
+      const col = index % cardColumns;
+      const row = Math.floor(index / cardColumns);
+      const x = margin + col * (cardWidth + cardGap);
+      const tileY = y - row * (cardHeight + cardGap);
       const markColor = item.ok ? success : danger;
-      page.drawRectangle({ x, y: y - cardHeight, width: cardWidth, height: cardHeight, color: paper, borderColor: markColor, borderWidth: 0.8 });
-      page.drawCircle({ x: x + 15, y: y - 16, size: 8, color: markColor });
-      drawText(String(index + 1), x + 12.5, y - 19, 6.5, bold, rgb(1, 1, 1));
-      drawRightText(item.ok ? "CLEAR" : "WARNING", x + cardWidth - 8, y - 14, 6, bold, markColor);
-      drawWrappedText(item.title, x + 10, y - 32, cardWidth - 20, 7.2, bold, navy, 8.2);
+      page.drawRectangle({ x, y: tileY - cardHeight, width: cardWidth, height: cardHeight, color: paper, borderColor: markColor, borderWidth: 0.8 });
+      page.drawCircle({ x: x + 15, y: tileY - 16, size: 8, color: markColor });
+      drawText(String(index + 1), x + 12.5, tileY - 19, 6.5, bold, rgb(1, 1, 1));
+      drawRightText(item.ok ? "CLEAR" : "WARNING", x + cardWidth - 8, tileY - 14, 6, bold, markColor);
+      drawWrappedText(item.title, x + 10, tileY - 31, cardWidth - 20, 7.2, bold, navy, 8.2);
       const detail = `${item.detail}${item.meta ? ` ${item.meta}.` : ""}`;
-      drawWrappedText(detail, x + 10, y - 48, cardWidth - 20, 5.6, regular, muted, 6.6);
+      drawWrappedText(detail, x + 10, tileY - 45, cardWidth - 20, 5.2, regular, muted, 6.1);
     });
-    y -= cardHeight + 16;
+    y -= cardRows * cardHeight + (cardRows - 1) * cardGap + 16;
   }
 
   function drawPdfItemisedCards() {
