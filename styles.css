@@ -692,7 +692,7 @@ input[type="text"] {
 }
 
 .mobile-duration-chip {
-  display: none;
+  display: none !important;
 }
 
 .compare-section {
@@ -932,7 +932,7 @@ input[type="text"] {
   }
 
   .mobile-duration-chip {
-    display: block;
+    display: block !important;
     grid-column: 1;
     justify-self: end;
     align-self: start;
