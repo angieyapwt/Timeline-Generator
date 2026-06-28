@@ -530,20 +530,37 @@ function renderTimeline({ scenario, tracks }) {
     const span = Math.max(1, end - start);
     const lastPctByLevel = [-100, -100, -100];
     let previousVisualPct = -100;
-    const milestones = track.events.map((event, index) => {
+    const positionedEvents = track.events.map((event, index) => {
       const pct = ((event.date - start) / span) * 100;
-      const visualPct = Math.min(100, Math.max(pct, previousVisualPct + 7));
+      const visualPct = Math.min(92, Math.max(8, pct, previousVisualPct + 12));
       previousVisualPct = visualPct;
       let level = lastPctByLevel.findIndex((lastPct) => visualPct - lastPct >= 22);
       if (level < 0) level = index % lastPctByLevel.length;
       lastPctByLevel[level] = visualPct;
-      return `<div class="milestone" style="left:clamp(60px, ${visualPct}%, calc(100% - 60px)); --level:${level}"><div class="dot"></div><div class="milestone-label"><strong>${event.name}</strong><span>${displayDate(event.date)}</span>${event.durationAfter ? `<em>${event.durationAfter}</em>` : ""}</div></div>`;
+      return { event, visualPct, level };
+    });
+    const milestones = positionedEvents.map(({ event, visualPct, level }) => {
+      return `<div class="milestone" style="left:clamp(60px, ${visualPct}%, calc(100% - 60px)); --level:${level}"><div class="dot"></div><div class="milestone-label"><strong>${event.name}</strong><span>${displayDate(event.date)}</span></div></div>`;
+    }).join("");
+    const durationChips = positionedEvents.slice(0, -1).map(({ event, visualPct }, index) => {
+      if (!event.durationAfter) return "";
+      const nextPct = positionedEvents[index + 1].visualPct;
+      const midPct = (visualPct + nextPct) / 2;
+      return `<span class="duration-chip" style="left:clamp(52px, ${midPct}%, calc(100% - 52px));">${event.durationAfter}</span>`;
+    }).join("");
+    const extensionSegments = positionedEvents.slice(0, -1).map(({ event, visualPct }, index) => {
+      const next = positionedEvents[index + 1];
+      const isExtensionPeriod =
+        (event.name === "Legal Completion" && next.event.name === "Extension Completion") ||
+        (event.name === "Extension Completion" && next.event.name === "Renovation Ready");
+      if (!isExtensionPeriod) return "";
+      return `<span class="extension-segment" style="left:${visualPct}%; width:${Math.max(0, next.visualPct - visualPct)}%;"></span>`;
     }).join("");
     return `
       <article class="track">
         <div class="track-title"><strong>${track.label}</strong><span>${trackDurationLabel(start, end)}</span></div>
-        <div class="track-line"><div class="track-fill"></div></div>
-        <div class="milestones">${milestones}</div>
+        <div class="track-line"><div class="track-fill"></div>${extensionSegments}</div>
+        <div class="milestones">${durationChips}${milestones}</div>
       </article>
     `;
   }).join("");
@@ -659,11 +676,46 @@ async function downloadPdf() {
     y -= 12;
   }
 
+  function drawPdfPlanningTiles(saleTrack, purchaseTrack, otpGapDays) {
+    const notes = [
+      ["Sale OTP to purchase OTP", saleTrack && purchaseTrack ? `${otpGapDays} days / ${(otpGapDays / 30.4).toFixed(1)} months` : "Single timeline"],
+      ["CPF refund buffer", state.includeBuffer ? `${state.assumptions.cpfBufferDays} days from sale legal completion` : "Not enforced"],
+      ["Funds readiness", "Confirm CPF refund, stamp duty and cash shortfall before exercising purchase OTP."],
+      ["Next action", "Review warnings first. If there are no warnings, this timeline can be used for planning."],
+    ];
+    const gap = 10;
+    const tileWidth = (pageWidth - margin * 2 - gap) / 2;
+    const tileHeight = 58;
+    const blockHeight = 18 + tileHeight * 2 + gap + 20;
+    if (y - blockHeight < 70) addReportPage();
+    drawText("PLANNING NOTES", margin, y, 8, bold, gold);
+    y -= 18;
+    notes.forEach(([label, value], index) => {
+      const col = index % 2;
+      const row = Math.floor(index / 2);
+      const x = margin + col * (tileWidth + gap);
+      const tileY = y - row * (tileHeight + gap);
+      page.drawRectangle({ x, y: tileY - tileHeight, width: tileWidth, height: tileHeight, color: paper, borderColor: line, borderWidth: 1 });
+      drawText(label, x + 10, tileY - 16, 7, bold, muted);
+      drawWrappedText(value, x + 10, tileY - 34, tileWidth - 20, index < 2 ? 10 : 7.8, index < 2 ? bold : regular, navy, index < 2 ? 11.5 : 9.2);
+    });
+    y -= tileHeight * 2 + gap + 22;
+  }
+
   function drawPdfInfographic() {
     if (y < 240) addReportPage();
     drawText("INFOGRAPHIC", margin, y, 8, bold, gold);
     y -= 18;
     drawText(scenarios[state.scenario].label, margin, y, 16, bold, navy);
+    const sale = result.tracks.find((track) => track.side === "sale");
+    const purchase = result.tracks.find((track) => track.side === "purchase");
+    if (sale && purchase) {
+      const bufferDays = daysBetween(sale.legalCompletion, purchase.legalCompletion);
+      const bufferText = state.includeBuffer ? `CPF buffer: ${bufferDays} days` : `${bufferDays} days between completions`;
+      const pillWidth = Math.max(90, bold.widthOfTextAtSize(bufferText, 7.5) + 20);
+      page.drawRectangle({ x: pageWidth - margin - pillWidth, y: y - 4, width: pillWidth, height: 18, color: rgb(232 / 255, 248 / 255, 244 / 255) });
+      drawText(bufferText, pageWidth - margin - pillWidth + 10, y + 1, 7.5, bold, success);
+    }
     y -= 28;
 
     result.tracks.forEach((track) => {
@@ -684,13 +736,34 @@ async function downloadPdf() {
       const span = Math.max(1, end - start);
       const lastPctByLevel = [-100, -100, -100];
       let previousVisualPct = -100;
-      track.events.forEach((event, index) => {
+      const positionedEvents = track.events.map((event, index) => {
         const pct = (event.date - start) / span;
-        const visualPct = Math.min(1, Math.max(pct, previousVisualPct + 0.07));
+        const visualPct = Math.min(0.92, Math.max(0.08, pct, previousVisualPct + 0.12));
         previousVisualPct = visualPct;
         let level = lastPctByLevel.findIndex((lastPct) => visualPct - lastPct >= 0.22);
         if (level < 0) level = index % lastPctByLevel.length;
         lastPctByLevel[level] = visualPct;
+        return { event, visualPct, level };
+      });
+      positionedEvents.slice(0, -1).forEach(({ event, visualPct }, index) => {
+        const next = positionedEvents[index + 1];
+        const isExtensionPeriod =
+          (event.name === "Legal Completion" && next.event.name === "Extension Completion") ||
+          (event.name === "Extension Completion" && next.event.name === "Renovation Ready");
+        if (!isExtensionPeriod) return;
+        const segmentX = lineX + visualPct * lineWidth;
+        page.drawRectangle({ x: segmentX, y: lineY, width: Math.max(2, (next.visualPct - visualPct) * lineWidth), height: 4, color: success });
+      });
+      positionedEvents.slice(0, -1).forEach(({ event, visualPct }, index) => {
+        if (!event.durationAfter) return;
+        const nextPct = positionedEvents[index + 1].visualPct;
+        const chipX = lineX + ((visualPct + nextPct) / 2) * lineWidth;
+        const chipText = event.durationAfter;
+        const chipWidth = Math.max(28, bold.widthOfTextAtSize(chipText, 5.8) + 8);
+        page.drawRectangle({ x: chipX - chipWidth / 2, y: lineY + 10, width: chipWidth, height: 10, color: card, borderColor: gold, borderWidth: 0.5 });
+        drawText(chipText, chipX - bold.widthOfTextAtSize(chipText, 5.8) / 2, lineY + 13, 5.8, bold, gold);
+      });
+      positionedEvents.forEach(({ event, visualPct, level }) => {
         const rawDotX = lineX + visualPct * lineWidth;
         const labelWidth = 72;
         const labelX = Math.min(Math.max(rawDotX - labelWidth / 2, x + 10), x + cardWidth - labelWidth - 10);
@@ -698,10 +771,17 @@ async function downloadPdf() {
         page.drawCircle({ x: rawDotX, y: lineY + 2, size: 4, color: navy, borderColor: gold, borderWidth: 1.5 });
         drawWrappedText(event.name, labelX, labelY, labelWidth, 6, bold, navy, 7);
         drawText(displayDate(event.date), labelX, labelY - 14, 5.8, regular, muted);
-        if (event.durationAfter) drawText(event.durationAfter, labelX, labelY - 25, 5.8, bold, gold);
       });
       y -= cardHeight + 14;
     });
+  }
+
+  function drawPdfDisclaimer() {
+    const text = "Disclaimer: This timeline is prepared for planning and discussion only. Dates are based on the assumptions entered at the time of generation and may change due to HDB, CPF Board, banks, law firms, sellers, buyers or other third-party processing timelines. Clients should verify all legal, financial, CPF and completion requirements with the appointed conveyancing lawyer and relevant authorities before making commitments. Angie Yap and the agent involved are not liable for changes, delays or decisions made solely from this planning report.";
+    if (y < 90) addReportPage();
+    drawText("DISCLAIMER", margin, y, 8, bold, gold);
+    y -= 14;
+    y = drawWrappedText(text, margin, y, pageWidth - margin * 2, 7, regular, muted, 9);
   }
 
   drawPageBackground();
@@ -751,24 +831,10 @@ async function downloadPdf() {
 
   drawPdfChecklist(buildChecklist(result));
   drawPdfItemisedCards();
+  drawPdfPlanningTiles(saleTrack, purchaseTrack, otpGapDays);
   drawPdfInfographic();
 
-  if (y < 120) addReportPage();
-  y -= 4;
-  drawText("Planning Notes", margin, y, 12, bold, navy);
-  y -= 20;
-  const assumptionLines = [
-    `CPF refund buffer: ${state.includeBuffer ? `${state.assumptions.cpfBufferDays} days from sale legal completion` : "not enforced"}`,
-    "Funds readiness: confirm CPF refund, stamp duty and cash shortfall before exercising purchase OTP.",
-    "Next action: review warnings first. If there are no warnings, this timeline can be used for planning.",
-  ];
-  if (saleTrack && purchaseTrack) {
-    assumptionLines.unshift(`Sale OTP to purchase OTP: ${otpGapDays} days / ${(otpGapDays / 30.4).toFixed(1)} months`);
-  }
-  assumptionLines.forEach((line) => {
-    drawText(line, margin, y, 10, regular, muted);
-    y -= 16;
-  });
+  drawPdfDisclaimer();
 
   const bytes = await pdf.save();
   document.body.dataset.pdfStatus = `generated ${bytes.length} bytes`;

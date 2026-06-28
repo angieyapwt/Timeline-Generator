@@ -597,7 +597,7 @@ input[type="text"] {
   flex-direction: column;
   justify-content: space-between;
   gap: 6px;
-  margin-bottom: 28px;
+  margin-bottom: 44px;
 }
 
 .track-title strong {
@@ -624,6 +624,16 @@ input[type="text"] {
   inset: 0;
   background: linear-gradient(90deg, var(--navy), var(--gold));
   border-radius: inherit;
+}
+
+.extension-segment {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0f8f72, #46b49b);
+  box-shadow: 0 0 0 2px rgba(15, 143, 114, 0.12);
 }
 
 .milestones {
@@ -672,6 +682,23 @@ input[type="text"] {
 
 .milestone em {
   font-size: 10.5px;
+}
+
+.duration-chip {
+  position: absolute;
+  top: -32px;
+  z-index: 3;
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #fffdfa;
+  color: var(--gold);
+  border: 1px solid rgba(200, 155, 60, 0.45);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(17, 28, 54, 0.08);
 }
 
 .compare-section {
@@ -895,6 +922,15 @@ input[type="text"] {
   .milestone span,
   .milestone em {
     font-size: 12px;
+  }
+
+  .duration-chip {
+    top: auto;
+    left: -12px !important;
+    transform: none;
+    margin-top: 34px;
+    padding: 2px 5px;
+    font-size: 10px;
   }
 
   .itemized-row {
