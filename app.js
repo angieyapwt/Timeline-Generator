@@ -619,55 +619,55 @@ async function downloadPdf() {
   }
 
   function drawPdfChecklist(items) {
-    if (y < 150) addReportPage();
+    if (y < 122) addReportPage();
     const hasWarning = items.some((item) => !item.ok);
     const cardGap = 10;
     const cardWidth = (pageWidth - margin * 2 - cardGap * 2) / 3;
-    const cardHeight = 92;
-    drawText(hasWarning ? "Timeline needs attention" : "Timeline checks passed", margin, y, 13, bold, navy);
-    y -= 18;
+    const cardHeight = 70;
+    drawText(hasWarning ? "Timeline needs attention" : "Timeline checks passed", margin, y, 11.5, bold, navy);
+    y -= 15;
     if (y - cardHeight < 70) addReportPage();
     items.forEach((item, index) => {
       const x = margin + index * (cardWidth + cardGap);
       const markColor = item.ok ? success : danger;
       page.drawRectangle({ x, y: y - cardHeight, width: cardWidth, height: cardHeight, color: paper, borderColor: markColor, borderWidth: 0.8 });
-      page.drawCircle({ x: x + 17, y: y - 18, size: 10, color: markColor });
-      drawText(String(index + 1), x + 14, y - 22, 8, bold, rgb(1, 1, 1));
-      drawRightText(item.ok ? "CLEAR" : "WARNING", x + cardWidth - 10, y - 16, 6.8, bold, markColor);
-      drawWrappedText(item.title, x + 12, y - 38, cardWidth - 24, 8.6, bold, navy, 9.5);
+      page.drawCircle({ x: x + 15, y: y - 16, size: 8, color: markColor });
+      drawText(String(index + 1), x + 12.5, y - 19, 6.5, bold, rgb(1, 1, 1));
+      drawRightText(item.ok ? "CLEAR" : "WARNING", x + cardWidth - 8, y - 14, 6, bold, markColor);
+      drawWrappedText(item.title, x + 10, y - 32, cardWidth - 20, 7.2, bold, navy, 8.2);
       const detail = `${item.detail}${item.meta ? ` ${item.meta}.` : ""}`;
-      drawWrappedText(detail, x + 12, y - 60, cardWidth - 24, 6.7, regular, muted, 8);
+      drawWrappedText(detail, x + 10, y - 48, cardWidth - 20, 5.6, regular, muted, 6.6);
     });
-    y -= cardHeight + 24;
+    y -= cardHeight + 16;
   }
 
   function drawPdfItemisedCards() {
     const cardWidth = pageWidth - margin * 2;
-    const rowHeight = 36;
-    const firstCardHeight = 34 + result.tracks[0].events.length * rowHeight;
-    const headingHeight = 48;
+    const rowHeight = 25;
+    const firstCardHeight = 28 + result.tracks[0].events.length * rowHeight;
+    const headingHeight = 38;
     if (y - headingHeight - firstCardHeight < 70) addReportPage();
     drawText("DATES", margin, y, 8, bold, gold);
+    y -= 15;
+    drawText("Itemised Timeline", margin, y, 13.5, bold, navy);
     y -= 18;
-    drawText("Itemised Timeline", margin, y, 16, bold, navy);
-    y -= 22;
     result.tracks.forEach((track) => {
-      const cardHeight = 34 + track.events.length * rowHeight;
+      const cardHeight = 28 + track.events.length * rowHeight;
       if (y - cardHeight < 70) addReportPage();
       const x = margin;
       page.drawRectangle({ x, y: y - cardHeight, width: cardWidth, height: cardHeight, color: card, borderColor: line, borderWidth: 1 });
-      page.drawRectangle({ x, y: y - 34, width: cardWidth, height: 34, color: paper });
-      drawText(track.label, x + 12, y - 21, 12, bold, navy);
+      page.drawRectangle({ x, y: y - 28, width: cardWidth, height: 28, color: paper });
+      drawText(track.label, x + 12, y - 18, 10.5, bold, navy);
       track.events.forEach((event, rowIndex) => {
-        const rowY = y - 34 - rowIndex * rowHeight;
+        const rowY = y - 28 - rowIndex * rowHeight;
         page.drawLine({ start: { x, y: rowY }, end: { x: x + cardWidth, y: rowY }, thickness: 0.5, color: line });
-        drawText(event.name, x + 12, rowY - 15, 8, bold, navy);
-        if (event.durationAfter) drawText(`${event.durationAfter} to next step`, x + 12, rowY - 27, 6.8, bold, gold);
-        drawRightText(displayDate(event.date), x + cardWidth - 12, rowY - 19, 8, bold, navy);
+        drawText(event.name, x + 12, rowY - 11, 7.2, bold, navy);
+        if (event.durationAfter) drawText(`${event.durationAfter} to next step`, x + 12, rowY - 21, 5.7, bold, gold);
+        drawRightText(displayDate(event.date), x + cardWidth - 12, rowY - 15, 7.4, bold, navy);
       });
-      y -= cardHeight + 12;
+      y -= cardHeight + 8;
     });
-    y -= 12;
+    y -= 8;
   }
 
   function drawPdfPlanningTiles(saleTrack, purchaseTrack, otpGapDays) {
@@ -679,28 +679,28 @@ async function downloadPdf() {
     ];
     const gap = 10;
     const tileWidth = (pageWidth - margin * 2 - gap) / 2;
-    const tileHeight = 58;
-    const blockHeight = 18 + tileHeight * 2 + gap + 20;
+    const tileHeight = 42;
+    const blockHeight = 16 + tileHeight * 2 + gap + 12;
     if (y - blockHeight < 70) addReportPage();
     drawText("PLANNING NOTES", margin, y, 8, bold, gold);
-    y -= 18;
+    y -= 15;
     notes.forEach(([label, value], index) => {
       const col = index % 2;
       const row = Math.floor(index / 2);
       const x = margin + col * (tileWidth + gap);
       const tileY = y - row * (tileHeight + gap);
       page.drawRectangle({ x, y: tileY - tileHeight, width: tileWidth, height: tileHeight, color: paper, borderColor: line, borderWidth: 1 });
-      drawText(label, x + 10, tileY - 16, 7, bold, muted);
-      drawWrappedText(value, x + 10, tileY - 34, tileWidth - 20, index < 2 ? 10 : 7.8, index < 2 ? bold : regular, navy, index < 2 ? 11.5 : 9.2);
+      drawText(label, x + 10, tileY - 13, 6.2, bold, muted);
+      drawWrappedText(value, x + 10, tileY - 27, tileWidth - 20, index < 2 ? 8.2 : 6.5, index < 2 ? bold : regular, navy, index < 2 ? 9.2 : 7.6);
     });
-    y -= tileHeight * 2 + gap + 22;
+    y -= tileHeight * 2 + gap + 14;
   }
 
   function drawPdfInfographic() {
-    if (y < 240) addReportPage();
+    if (y < 225) addReportPage();
     drawText("INFOGRAPHIC", margin, y, 8, bold, gold);
-    y -= 18;
-    drawText(scenarios[state.scenario].label, margin, y, 16, bold, navy);
+    y -= 15;
+    drawText(scenarios[state.scenario].label, margin, y, 13.5, bold, navy);
     const sale = result.tracks.find((track) => track.side === "sale");
     const purchase = result.tracks.find((track) => track.side === "purchase");
     if (sale && purchase) {
@@ -710,18 +710,18 @@ async function downloadPdf() {
       page.drawRectangle({ x: pageWidth - margin - pillWidth, y: y - 4, width: pillWidth, height: 18, color: rgb(232 / 255, 248 / 255, 244 / 255) });
       drawText(bufferText, pageWidth - margin - pillWidth + 10, y + 1, 7.5, bold, success);
     }
-    y -= 28;
+    y -= 22;
 
     result.tracks.forEach((track) => {
-      if (y < 170) addReportPage();
+      if (y < 150) addReportPage();
       const x = margin;
       const cardWidth = pageWidth - margin * 2;
-      const cardHeight = 150;
+      const cardHeight = 128;
       page.drawRectangle({ x, y: y - cardHeight, width: cardWidth, height: cardHeight, color: card, borderColor: line, borderWidth: 1 });
-      drawText(track.label, x + 14, y - 22, 15, bold, navy);
-      drawText(trackDurationLabel(track.events[0].date, track.events.at(-1).date), x + 14, y - 40, 8.5, regular, muted);
+      drawText(track.label, x + 14, y - 19, 13, bold, navy);
+      drawText(trackDurationLabel(track.events[0].date, track.events.at(-1).date), x + 14, y - 34, 7.4, regular, muted);
       const lineX = x + 18;
-      const lineY = y - 68;
+      const lineY = y - 58;
       const lineWidth = cardWidth - 36;
       page.drawRectangle({ x: lineX, y: lineY, width: lineWidth, height: 4, color: gold });
       page.drawRectangle({ x: lineX, y: lineY, width: Math.max(24, lineWidth * 0.36), height: 4, color: navy });
@@ -745,46 +745,42 @@ async function downloadPdf() {
         const chipX = lineX + ((visualPct + nextPct) / 2) * lineWidth;
         const chipText = event.durationAfter;
         const chipWidth = Math.max(28, bold.widthOfTextAtSize(chipText, 5.8) + 8);
-        page.drawRectangle({ x: chipX - chipWidth / 2, y: lineY + 10, width: chipWidth, height: 10, color: card, borderColor: gold, borderWidth: 0.5 });
-        drawText(chipText, chipX - bold.widthOfTextAtSize(chipText, 5.8) / 2, lineY + 13, 5.8, bold, gold);
+        page.drawRectangle({ x: chipX - chipWidth / 2, y: lineY + 9, width: chipWidth, height: 9, color: card, borderColor: gold, borderWidth: 0.5 });
+        drawText(chipText, chipX - bold.widthOfTextAtSize(chipText, 5.5) / 2, lineY + 11.7, 5.5, bold, gold);
       });
       positionedEvents.forEach(({ event, visualPct, level }) => {
         const rawDotX = lineX + visualPct * lineWidth;
         const labelWidth = 72;
         const labelX = Math.min(Math.max(rawDotX - labelWidth / 2, x + 10), x + cardWidth - labelWidth - 10);
-        const labelY = lineY - 18 - level * 32;
+        const labelY = lineY - 15 - level * 26;
         page.drawCircle({ x: rawDotX, y: lineY + 2, size: 4, color: navy, borderColor: gold, borderWidth: 1.5 });
-        drawWrappedText(event.name, labelX, labelY, labelWidth, 6, bold, navy, 7);
-        drawText(displayDate(event.date), labelX, labelY - 14, 5.8, regular, muted);
+        drawWrappedText(event.name, labelX, labelY, labelWidth, 5.4, bold, navy, 6.2);
+        drawText(displayDate(event.date), labelX, labelY - 12, 5.2, regular, muted);
       });
-      y -= cardHeight + 14;
+      y -= cardHeight + 10;
     });
   }
 
   function drawPdfDisclaimer() {
     const text = "Disclaimer: This timeline is prepared for planning and discussion only. Dates are based on the assumptions entered at the time of generation and may change due to HDB, CPF Board, banks, law firms, sellers, buyers or other third-party processing timelines. Clients should verify all legal, financial, CPF and completion requirements with the appointed conveyancing lawyer and relevant authorities before making commitments.";
-    if (y < 90) addReportPage();
+    if (y < 78) addReportPage();
     drawText("DISCLAIMER", margin, y, 8, bold, gold);
-    y -= 14;
-    y = drawWrappedText(text, margin, y, pageWidth - margin * 2, 7, regular, muted, 9);
+    y -= 12;
+    y = drawWrappedText(text, margin, y, pageWidth - margin * 2, 6.2, regular, muted, 7.5);
   }
 
   drawPageBackground();
-  page.drawRectangle({ x: 0, y: pageHeight - 132, width: pageWidth, height: 132, color: navy });
-  y -= 12;
-  drawText("Timeline Report", margin, y, 28, bold, rgb(1, 1, 1));
-  y -= 24;
-  drawText("Angie Yap | 83963088 | CEA No.: R067805D", margin, y, 10, regular, rgb(1, 1, 1));
-  page.drawRectangle({ x: pageWidth - margin - 170, y: pageHeight - 96, width: 170, height: 52, color: rgb(47 / 255, 58 / 255, 86 / 255), borderColor: rgb(83 / 255, 91 / 255, 111 / 255), borderWidth: 1 });
-  drawText("Prepared by", pageWidth - margin - 154, pageHeight - 62, 7, bold, goldLight);
-  drawText("Angie Yap", pageWidth - margin - 154, pageHeight - 78, 14, bold, rgb(1, 1, 1));
-  drawText("83963088 | CEA No.: R067805D", pageWidth - margin - 154, pageHeight - 91, 7, regular, rgb(1, 1, 1));
-  y = pageHeight - 168;
+  page.drawRectangle({ x: 0, y: pageHeight - 88, width: pageWidth, height: 88, color: navy });
+  y -= 4;
+  drawText("Timeline Report", margin, y, 22, bold, rgb(1, 1, 1));
+  y -= 21;
+  drawText("Angie Yap | 83963088 | CEA No.: R067805D", margin, y, 8.5, regular, rgb(1, 1, 1));
+  y = pageHeight - 114;
 
-  drawText(scenarios[state.scenario].label, margin, y, 16, bold, navy);
-  y -= 24;
-  drawText(`Generated on ${displayDate(new Date())}`, margin, y, 10, regular, muted);
-  y -= 30;
+  drawText(scenarios[state.scenario].label, margin, y, 13.5, bold, navy);
+  y -= 18;
+  drawText(`Generated on ${displayDate(new Date())}`, margin, y, 8.2, regular, muted);
+  y -= 20;
 
   const saleTrack = result.tracks.find((track) => track.side === "sale");
   const purchaseTrack = result.tracks.find((track) => track.side === "purchase");
@@ -798,29 +794,30 @@ async function downloadPdf() {
     ["Sale OTP to purchase OTP", otpGapDays !== null ? `${otpGapDays} days / ${(otpGapDays / 30.4).toFixed(1)} months` : "Not selected"],
   ];
   const tileGap = 8;
-  const tileHeight = 58;
-  const scenarioTileHeight = 62;
+  const tileHeight = 48;
+  const scenarioTileHeight = 46;
   const fullWidth = pageWidth - margin * 2;
   page.drawRectangle({ x: margin, y: y - scenarioTileHeight, width: fullWidth, height: scenarioTileHeight, color: paper, borderColor: rgb(217 / 255, 214 / 255, 205 / 255), borderWidth: 1 });
-  drawText(summaryTiles[0][0], margin + 10, y - 16, 6.8, bold, muted);
-  drawWrappedText(summaryTiles[0][1], margin + 10, y - 36, fullWidth - 20, 13, bold, navy, 14.5);
-  y -= scenarioTileHeight + 8;
+  drawText(summaryTiles[0][0], margin + 10, y - 13, 6.2, bold, muted);
+  drawWrappedText(summaryTiles[0][1], margin + 10, y - 31, fullWidth - 20, 10.5, bold, navy, 11.5);
+  y -= scenarioTileHeight + 7;
   const tileWidth = (fullWidth - tileGap * 3) / 4;
   summaryTiles.slice(1).forEach(([label, value], index) => {
     const x = margin + index * (tileWidth + tileGap);
     page.drawRectangle({ x, y: y - tileHeight, width: tileWidth, height: tileHeight, color: paper, borderColor: rgb(217 / 255, 214 / 255, 205 / 255), borderWidth: 1 });
-    drawText(label, x + 8, y - 15, 6.2, bold, muted);
-    drawWrappedText(value, x + 8, y - 36, tileWidth - 16, index === 3 ? 8.4 : 9.4, bold, navy, 10.5);
+    drawText(label, x + 8, y - 13, 5.8, bold, muted);
+    drawWrappedText(value, x + 8, y - 31, tileWidth - 16, index === 3 ? 7.5 : 8.3, bold, navy, 9.2);
   });
-  y -= tileHeight + 28;
+  y -= tileHeight + 20;
 
-  drawPdfChecklist(buildChecklist(result));
-  drawPdfItemisedCards();
-  drawPdfPlanningTiles(saleTrack, purchaseTrack, otpGapDays);
   drawPdfInfographic();
+  drawPdfItemisedCards();
+  drawPdfChecklist(buildChecklist(result));
+  drawPdfPlanningTiles(saleTrack, purchaseTrack, otpGapDays);
 
   drawPdfDisclaimer();
 
+  document.body.dataset.pdfPageCount = String(pdf.getPageCount());
   const bytes = await pdf.save();
   document.body.dataset.pdfStatus = `generated ${bytes.length} bytes`;
   const blob = new Blob([bytes], { type: "application/pdf" });
