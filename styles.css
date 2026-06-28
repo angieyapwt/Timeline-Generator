@@ -883,8 +883,8 @@ input[type="text"] {
   .milestone {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(78px, 0.9fr) 34px minmax(120px, 1.1fr);
-    column-gap: 10px;
+    grid-template-columns: minmax(112px, 1fr) 34px minmax(116px, 1fr);
+    column-gap: 8px;
     align-items: start;
     top: auto;
     left: auto !important;
@@ -937,13 +937,14 @@ input[type="text"] {
     justify-self: end;
     align-self: start;
     margin-top: 6px;
-    padding: 3px 6px;
-    max-width: 78px;
+    padding: 4px 8px;
+    min-width: 82px;
+    max-width: 112px;
     border-radius: 999px;
     border: 1px solid rgba(200, 155, 60, 0.45);
     background: #fffdfa;
     color: var(--gold);
-    font-size: 9.5px;
+    font-size: 9px;
     font-weight: 800;
     line-height: 1.15;
     text-align: center;
