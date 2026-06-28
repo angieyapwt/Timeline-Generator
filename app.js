@@ -109,7 +109,11 @@ function addBusinessDays(date, days) {
 
 function addMonths(date, months) {
   const result = new Date(date);
-  result.setMonth(result.getMonth() + Number(months));
+  const value = Number(months || 0);
+  const wholeMonths = value < 0 ? Math.ceil(value) : Math.floor(value);
+  const partialMonth = value - wholeMonths;
+  result.setMonth(result.getMonth() + wholeMonths);
+  if (partialMonth) result.setDate(result.getDate() + Math.round(partialMonth * 30.4));
   return result;
 }
 
@@ -342,7 +346,9 @@ function renderAssumptions() {
     const entries = Object.entries(values).map(([name, value]) => {
       const label = labelize(name);
       const unit = assumptionUnit(name);
-      return `<div class="duration-grid"><label>${label}${unit ? ` <span>${unit}</span>` : ""}</label><input data-assumption-track="${key}" data-assumption-key="${name}" type="number" min="0" step="1" value="${value}" /></div>`;
+      const step = name.toLowerCase().includes("months") ? "any" : "1";
+      const inputMode = name.toLowerCase().includes("months") ? "decimal" : "numeric";
+      return `<div class="duration-grid"><label>${label}${unit ? ` <span>${unit}</span>` : ""}</label><input data-assumption-track="${key}" data-assumption-key="${name}" type="number" inputmode="${inputMode}" min="0" step="${step}" value="${value}" /></div>`;
     }).join("");
     groups.push(`<div class="assumption-group"><h3>${trackMeta[key].label}</h3>${entries}</div>`);
   });
