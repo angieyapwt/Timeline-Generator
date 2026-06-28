@@ -119,10 +119,16 @@ function addMonths(date, months) {
 
 function addDuration(date, amount, unit, direction = 1) {
   const signed = Number(amount) * direction;
-  if (unit === "days") return state.skipWeekends ? addBusinessDays(date, signed) : addDays(date, signed);
+  if (unit === "workingDays") return state.skipWeekends ? addBusinessDays(date, signed) : addDays(date, signed);
+  if (unit === "calendarDays" || unit === "days") return addDays(date, signed);
   if (unit === "weeks") return addDays(date, signed * 7);
   if (unit === "months") return addMonths(date, signed);
   return date;
+}
+
+function addCpfBuffer(date, direction = 1) {
+  const signed = Number(state.assumptions.cpfBufferDays) * direction;
+  return state.skipWeekends ? addBusinessDays(date, signed) : addDays(date, signed);
 }
 
 function parseDate(value) {
@@ -181,6 +187,14 @@ function workingDaysBetween(a, b) {
   return days;
 }
 
+function cpfBufferGapDays(a, b) {
+  return state.skipWeekends ? workingDaysBetween(a, b) : daysBetween(a, b);
+}
+
+function cpfBufferUnitLabel() {
+  return state.skipWeekends ? "working days" : "calendar days";
+}
+
 function stripTime(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -189,9 +203,9 @@ function stepsFor(trackKey) {
   const a = state.assumptions[trackKey];
   if (trackMeta[trackKey].type === "hdb") {
     return [
-      { name: "Issue OTP", duration: a.otpExerciseDays, unit: "days" },
-      { name: "Exercise OTP", duration: a.resaleSubmissionDays, unit: "days" },
-      { name: "HDB Submission", duration: a.hdbAcceptanceDays, unit: "days" },
+      { name: "Issue OTP", duration: a.otpExerciseDays, unit: "calendarDays" },
+      { name: "Exercise OTP", duration: a.resaleSubmissionDays, unit: "workingDays" },
+      { name: "HDB Submission", duration: a.hdbAcceptanceDays, unit: "workingDays" },
       { name: "Acceptance by HDB", duration: a.endorsementDays, unit: "days" },
       { name: "Endorsement", duration: a.completionDays, unit: "days" },
       { name: "Legal Completion", duration: a.extensionMonths, unit: "months" },
@@ -242,7 +256,8 @@ function buildReverse(trackKey, completionDate) {
 function durationLabel(step) {
   const amount = Number(step.duration || 0);
   if (!amount) return "";
-  return `${amount} ${step.unit}`;
+  const unit = step.unit === "workingDays" ? (state.skipWeekends ? "working days" : "days") : step.unit === "calendarDays" ? "days" : step.unit;
+  return `${amount} ${unit}`;
 }
 
 function normalizeTrack(trackKey, events) {
@@ -269,7 +284,7 @@ function calculate() {
   let purchaseCompletionTarget = state.dates.purchaseCompletionDate;
 
   if (state.mode === "reverse" && hasSale && hasPurchase && state.includeBuffer) {
-    purchaseCompletionTarget = isoDate(addDays(parseDate(saleCompletionTarget), state.assumptions.cpfBufferDays));
+    purchaseCompletionTarget = isoDate(addCpfBuffer(parseDate(saleCompletionTarget)));
   }
 
   const tracks = scenario.tracks.map((key) => {
@@ -314,7 +329,7 @@ function renderInputs() {
   els.reverseInputs.innerHTML = `
     ${hasSale ? dateField("saleCompletionDate", "Sale legal completion date", "CPF refund buffer starts from legal completion") : ""}
     ${hasPurchase && !hasSale ? dateField("purchaseCompletionDate", "Purchase legal completion date", "System works backward to latest OTP date") : ""}
-    ${hasPurchase && hasSale ? `<div class="field"><span class="field-label">Purchase legal completion date</span><input type="text" value="${displayDate(addDays(parseDate(state.dates.saleCompletionDate), state.assumptions.cpfBufferDays))}" disabled /><small>${state.includeBuffer ? "Auto-filled from sale legal completion + 21-day CPF buffer." : "Auto-filled from sale legal completion with 0-day buffer."}</small></div>` : ""}
+    ${hasPurchase && hasSale ? `<div class="field"><span class="field-label">Purchase legal completion date</span><input type="text" value="${displayDate(addCpfBuffer(parseDate(state.dates.saleCompletionDate)))}" disabled /><small>${state.includeBuffer ? `Auto-filled from sale legal completion + ${state.assumptions.cpfBufferDays}-${state.skipWeekends ? "working" : "calendar"}-day CPF buffer.` : "Auto-filled from sale legal completion with 0-day buffer."}</small></div>` : ""}
   `;
   document.querySelectorAll("[data-date-key]").forEach((input) => {
     input.addEventListener("input", (event) => {
@@ -389,6 +404,7 @@ function renderSummary({ scenario, tracks }) {
   const sale = tracks.find((track) => track.side === "sale");
   const purchase = tracks.find((track) => track.side === "purchase");
   const bufferDays = sale && purchase ? daysBetween(sale.legalCompletion, purchase.legalCompletion) : null;
+  const cpfGapDays = sale && purchase ? cpfBufferGapDays(sale.legalCompletion, purchase.legalCompletion) : null;
   const latestPurchaseOtp = purchase ? purchase.events[0].date : null;
   const otpGapDays = sale && purchase ? daysBetween(sale.events[0].date, purchase.events[0].date) : null;
   const checklistItems = buildChecklist({ tracks });
@@ -412,10 +428,10 @@ function renderSummary({ scenario, tracks }) {
   let status = "Single timeline";
   let statusClass = "";
   if (bufferDays !== null) {
-    if (!state.includeBuffer) status = `${bufferDays} days between completions`;
-    else if (bufferDays >= state.assumptions.cpfBufferDays) status = `CPF buffer met: ${bufferDays} days`;
+    if (!state.includeBuffer) status = `${bufferDays} calendar days between completions`;
+    else if (cpfGapDays >= state.assumptions.cpfBufferDays) status = `CPF buffer met: ${cpfGapDays} ${cpfBufferUnitLabel()}`;
     else {
-      status = `CPF buffer short: ${bufferDays} days`;
+      status = `CPF buffer short: ${cpfGapDays} ${cpfBufferUnitLabel()}`;
       statusClass = "danger";
     }
   }
@@ -679,7 +695,7 @@ async function downloadPdf() {
   function drawPdfPlanningTiles(saleTrack, purchaseTrack, otpGapDays) {
     const notes = [
       ["Sale OTP to purchase OTP", saleTrack && purchaseTrack ? `${otpGapDays} days / ${(otpGapDays / 30.4).toFixed(1)} months` : "Single timeline"],
-      ["CPF refund buffer", state.includeBuffer ? `${state.assumptions.cpfBufferDays} days from sale legal completion` : "Not enforced"],
+      ["CPF refund buffer", state.includeBuffer ? `${state.assumptions.cpfBufferDays} ${cpfBufferUnitLabel()} from sale legal completion` : "Not enforced"],
       ["Funds readiness", "Confirm CPF refund, stamp duty and cash shortfall before exercising purchase OTP."],
       ["Next action", "Review warnings first. If there are no warnings, this timeline can be used for planning."],
     ];
@@ -711,7 +727,8 @@ async function downloadPdf() {
     const purchase = result.tracks.find((track) => track.side === "purchase");
     if (sale && purchase) {
       const bufferDays = daysBetween(sale.legalCompletion, purchase.legalCompletion);
-      const bufferText = state.includeBuffer ? `CPF buffer: ${bufferDays} days` : `${bufferDays} days between completions`;
+      const cpfGapDays = cpfBufferGapDays(sale.legalCompletion, purchase.legalCompletion);
+      const bufferText = state.includeBuffer ? `CPF buffer: ${cpfGapDays} ${cpfBufferUnitLabel()}` : `${bufferDays} calendar days between completions`;
       const pillWidth = Math.max(90, bold.widthOfTextAtSize(bufferText, 7.5) + 20);
       page.drawRectangle({ x: pageWidth - margin - pillWidth, y: y - 4, width: pillWidth, height: 18, color: rgb(232 / 255, 248 / 255, 244 / 255) });
       drawText(bufferText, pageWidth - margin - pillWidth + 10, y + 1, 7.5, bold, success);
