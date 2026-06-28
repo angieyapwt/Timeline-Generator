@@ -626,16 +626,6 @@ input[type="text"] {
   border-radius: inherit;
 }
 
-.extension-segment {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  z-index: 2;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #0f8f72, #46b49b);
-  box-shadow: 0 0 0 2px rgba(15, 143, 114, 0.12);
-}
-
 .milestones {
   position: relative;
   min-height: 234px;

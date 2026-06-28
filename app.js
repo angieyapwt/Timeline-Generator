@@ -548,18 +548,10 @@ function renderTimeline({ scenario, tracks }) {
       const midPct = (visualPct + nextPct) / 2;
       return `<span class="duration-chip" style="left:clamp(52px, ${midPct}%, calc(100% - 52px));">${event.durationAfter}</span>`;
     }).join("");
-    const extensionSegments = positionedEvents.slice(0, -1).map(({ event, visualPct }, index) => {
-      const next = positionedEvents[index + 1];
-      const isExtensionPeriod =
-        (event.name === "Legal Completion" && next.event.name === "Extension Completion") ||
-        (event.name === "Extension Completion" && next.event.name === "Renovation Ready");
-      if (!isExtensionPeriod) return "";
-      return `<span class="extension-segment" style="left:${visualPct}%; width:${Math.max(0, next.visualPct - visualPct)}%;"></span>`;
-    }).join("");
     return `
       <article class="track">
         <div class="track-title"><strong>${track.label}</strong><span>${trackDurationLabel(start, end)}</span></div>
-        <div class="track-line"><div class="track-fill"></div>${extensionSegments}</div>
+        <div class="track-line"><div class="track-fill"></div></div>
         <div class="milestones">${durationChips}${milestones}</div>
       </article>
     `;
@@ -650,13 +642,15 @@ async function downloadPdf() {
   }
 
   function drawPdfItemisedCards() {
-    if (y < 230) addReportPage();
+    const cardWidth = pageWidth - margin * 2;
+    const rowHeight = 36;
+    const firstCardHeight = 34 + result.tracks[0].events.length * rowHeight;
+    const headingHeight = 48;
+    if (y - headingHeight - firstCardHeight < 70) addReportPage();
     drawText("DATES", margin, y, 8, bold, gold);
     y -= 18;
     drawText("Itemised Timeline", margin, y, 16, bold, navy);
     y -= 22;
-    const cardWidth = pageWidth - margin * 2;
-    const rowHeight = 36;
     result.tracks.forEach((track) => {
       const cardHeight = 34 + track.events.length * rowHeight;
       if (y - cardHeight < 70) addReportPage();
@@ -746,15 +740,6 @@ async function downloadPdf() {
         return { event, visualPct, level };
       });
       positionedEvents.slice(0, -1).forEach(({ event, visualPct }, index) => {
-        const next = positionedEvents[index + 1];
-        const isExtensionPeriod =
-          (event.name === "Legal Completion" && next.event.name === "Extension Completion") ||
-          (event.name === "Extension Completion" && next.event.name === "Renovation Ready");
-        if (!isExtensionPeriod) return;
-        const segmentX = lineX + visualPct * lineWidth;
-        page.drawRectangle({ x: segmentX, y: lineY, width: Math.max(2, (next.visualPct - visualPct) * lineWidth), height: 4, color: success });
-      });
-      positionedEvents.slice(0, -1).forEach(({ event, visualPct }, index) => {
         if (!event.durationAfter) return;
         const nextPct = positionedEvents[index + 1].visualPct;
         const chipX = lineX + ((visualPct + nextPct) / 2) * lineWidth;
@@ -777,7 +762,7 @@ async function downloadPdf() {
   }
 
   function drawPdfDisclaimer() {
-    const text = "Disclaimer: This timeline is prepared for planning and discussion only. Dates are based on the assumptions entered at the time of generation and may change due to HDB, CPF Board, banks, law firms, sellers, buyers or other third-party processing timelines. Clients should verify all legal, financial, CPF and completion requirements with the appointed conveyancing lawyer and relevant authorities before making commitments. Angie Yap and the agent involved are not liable for changes, delays or decisions made solely from this planning report.";
+    const text = "Disclaimer: This timeline is prepared for planning and discussion only. Dates are based on the assumptions entered at the time of generation and may change due to HDB, CPF Board, banks, law firms, sellers, buyers or other third-party processing timelines. Clients should verify all legal, financial, CPF and completion requirements with the appointed conveyancing lawyer and relevant authorities before making commitments.";
     if (y < 90) addReportPage();
     drawText("DISCLAIMER", margin, y, 8, bold, gold);
     y -= 14;
