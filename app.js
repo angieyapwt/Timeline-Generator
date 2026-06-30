@@ -41,6 +41,8 @@ const scenarios = {
   },
 };
 
+const reverseScenarioKeys = ["hdb_purchase", "private_purchase"];
+
 const trackMeta = {
   hdbSale: { label: "HDB Sales", type: "hdb", side: "sale" },
   hdbPurchase: { label: "HDB Purchase", type: "hdb", side: "purchase" },
@@ -340,7 +342,7 @@ function calculate() {
 function render() {
   if (!state.includeBuffer) state.assumptions.cpfBufferDays = 0;
   if (state.includeBuffer && state.assumptions.cpfBufferDays === 0) state.assumptions.cpfBufferDays = 21;
-  els.scenario.value = state.scenario;
+  renderScenarioOptions();
   els.skipWeekends.checked = state.skipWeekends;
   els.includeBuffer.checked = state.includeBuffer;
   document.querySelectorAll(".mode-button").forEach((button) => button.classList.toggle("active", button.dataset.mode === state.mode));
@@ -353,6 +355,17 @@ function render() {
   renderItemized(result);
   renderTimeline(result);
   renderSummary(result);
+}
+
+function scenarioKeysForMode() {
+  return state.mode === "reverse" ? reverseScenarioKeys : Object.keys(scenarios);
+}
+
+function renderScenarioOptions() {
+  const keys = scenarioKeysForMode();
+  if (!keys.includes(state.scenario)) state.scenario = keys[0];
+  els.scenario.innerHTML = keys.map((key) => `<option value="${key}">${scenarios[key].label}</option>`).join("");
+  els.scenario.value = state.scenario;
 }
 
 function renderInputs() {
@@ -922,12 +935,6 @@ async function downloadPdf() {
 }
 
 function init() {
-  Object.entries(scenarios).forEach(([key, scenario]) => {
-    const option = document.createElement("option");
-    option.value = key;
-    option.textContent = scenario.label;
-    els.scenario.appendChild(option);
-  });
   els.scenario.addEventListener("change", (event) => {
     state.scenario = event.target.value;
     render();
