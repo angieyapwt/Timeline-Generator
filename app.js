@@ -50,8 +50,8 @@ const trackMeta = {
 
 const defaultAssumptions = {
   cpfBufferDays: 21,
-  hdbSale: { otpExerciseDays: 21, resaleSubmissionDays: 60, hdbAcceptanceDays: 28, endorsementDays: 14, completionWeeks: 8, extensionMonths: 0 },
-  hdbPurchase: { otpExerciseDays: 21, resaleSubmissionDays: 60, hdbAcceptanceDays: 28, endorsementDays: 14, completionWeeks: 8, extensionMonths: 0, renovationMonths: 0 },
+  hdbSale: { otpExerciseDays: 21, resaleSubmissionDays: 60, hdbAcceptanceDays: 28, endorsementDays: 14, completionWeeks: 6, extensionMonths: 0 },
+  hdbPurchase: { otpExerciseDays: 21, resaleSubmissionDays: 60, hdbAcceptanceDays: 28, endorsementDays: 14, completionWeeks: 6, extensionMonths: 0, renovationMonths: 0 },
   privateSale: { otpExerciseWeeks: 2, completionWeeks: 12, extensionMonths: 0 },
   privatePurchase: { otpExerciseWeeks: 2, completionWeeks: 12, extensionMonths: 0, renovationMonths: 0 },
 };
