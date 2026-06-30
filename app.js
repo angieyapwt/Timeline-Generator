@@ -496,15 +496,16 @@ function eventDate(track, name) {
 function buildChecklist({ tracks }) {
   const sale = tracks.find((track) => track.side === "sale");
   const purchase = tracks.find((track) => track.side === "purchase");
+  const hasLinkedTimelines = Boolean(sale && purchase);
   const saleExercise = eventDate(sale, "Exercise OTP");
   const purchaseExercise = eventDate(purchase, "Exercise OTP");
   const saleSubmission = eventDate(sale, "HDB Submission");
   const saleNeedsHdbExtension = sale?.key === "hdbSale" && Number(state.assumptions.hdbSale.extensionMonths) > 0;
-  const completionGapDays = sale && purchase ? daysBetween(sale.legalCompletion, purchase.legalCompletion) : null;
-  const completionGapWorkingDays = sale && purchase ? workingDaysBetween(sale.legalCompletion, purchase.legalCompletion) : null;
+  const completionGapDays = hasLinkedTimelines ? daysBetween(sale.legalCompletion, purchase.legalCompletion) : null;
+  const completionGapWorkingDays = hasLinkedTimelines ? workingDaysBetween(sale.legalCompletion, purchase.legalCompletion) : null;
   const purchaseIsHdb = purchase?.key === "hdbPurchase";
   const requiredCompletionText = purchaseIsHdb ? "15 working days" : "3 weeks";
-  const completionOk = sale && purchase ? (purchaseIsHdb ? completionGapWorkingDays >= 15 : completionGapDays >= 21) : true;
+  const completionOk = hasLinkedTimelines ? (purchaseIsHdb ? completionGapWorkingDays >= 15 : completionGapDays >= 21) : true;
   const completionIssues = [sale, purchase]
     .filter(Boolean)
     .map((track) => ({ track, reason: completionBlocker(track.legalCompletion) }))
@@ -514,21 +515,27 @@ function buildChecklist({ tracks }) {
   return [
     {
       title: "HDB extension sequencing",
-      detail: saleNeedsHdbExtension
+      detail: !hasLinkedTimelines
+        ? "Only applies when sale and purchase timelines are combined."
+        : saleNeedsHdbExtension
         ? "Purchase Exercise OTP must be before sale HDB resale submission."
         : "Only applies when HDB sale extension is required.",
-      ok: !saleNeedsHdbExtension || (purchaseExercise && saleSubmission && purchaseExercise < saleSubmission),
+      ok: !hasLinkedTimelines || !saleNeedsHdbExtension || (purchaseExercise && saleSubmission && purchaseExercise < saleSubmission),
     },
     {
       title: "ABSD timing",
-      detail: "Purchase OTP must be exercised after sale OTP is exercised.",
-      ok: !sale || !purchase || (saleExercise && purchaseExercise && purchaseExercise > saleExercise),
+      detail: hasLinkedTimelines
+        ? "Purchase OTP must be exercised after sale OTP is exercised."
+        : "Only applies when sale and purchase timelines are combined.",
+      ok: !hasLinkedTimelines || (saleExercise && purchaseExercise && purchaseExercise > saleExercise),
     },
     {
       title: "Completion buffer",
-      detail: `Completion gap must be at least ${requiredCompletionText}.`,
+      detail: hasLinkedTimelines
+        ? `Completion gap must be at least ${requiredCompletionText}.`
+        : "Only applies when sale and purchase timelines are combined.",
       ok: completionOk,
-      meta: sale && purchase
+      meta: hasLinkedTimelines
         ? `${completionGapDays} calendar days${purchaseIsHdb ? ` / ${completionGapWorkingDays} working days` : ""}`
         : "Single timeline",
     },
