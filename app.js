@@ -50,8 +50,8 @@ const trackMeta = {
 
 const defaultAssumptions = {
   cpfBufferDays: 21,
-  hdbSale: { otpExerciseDays: 21, resaleSubmissionDays: 60, hdbAcceptanceDays: 28, endorsementDays: 14, completionWeeks: 6, extensionMonths: 0 },
-  hdbPurchase: { otpExerciseDays: 21, resaleSubmissionDays: 60, hdbAcceptanceDays: 28, endorsementDays: 14, completionWeeks: 6, extensionMonths: 0, renovationMonths: 0 },
+  hdbSale: { otpExerciseDays: 21, resaleSubmissionDays: 60, hdbAcceptanceDays: 28, endorsementWeeks: 2, completionWeeks: 6, extensionMonths: 0 },
+  hdbPurchase: { otpExerciseDays: 21, resaleSubmissionDays: 60, hdbAcceptanceDays: 28, endorsementWeeks: 2, completionWeeks: 6, extensionMonths: 0, renovationMonths: 0 },
   privateSale: { otpExerciseWeeks: 2, completionWeeks: 12, extensionMonths: 0 },
   privatePurchase: { otpExerciseWeeks: 2, completionWeeks: 12, extensionMonths: 0, renovationMonths: 0 },
 };
@@ -241,9 +241,9 @@ function stepsFor(trackKey) {
   if (trackMeta[trackKey].type === "hdb") {
     return [
       { name: "Issue OTP", duration: a.otpExerciseDays, unit: "calendarDays" },
-      { name: "Exercise OTP", duration: a.resaleSubmissionDays, unit: "workingDays" },
+      { name: "Exercise OTP", duration: a.resaleSubmissionDays, unit: "calendarDays" },
       { name: "HDB Submission", duration: a.hdbAcceptanceDays, unit: "workingDays" },
-      { name: "Acceptance by HDB", duration: a.endorsementDays, unit: "days" },
+      { name: "Acceptance by HDB", duration: a.endorsementWeeks, unit: "weeks" },
       { name: "Endorsement", duration: a.completionWeeks, unit: "weeks" },
       { name: "Legal Completion", duration: a.extensionMonths, unit: "months" },
       { name: "Extension Completion", optional: true, duration: trackMeta[trackKey].side === "purchase" ? a.renovationMonths : 0, unit: "months" },
