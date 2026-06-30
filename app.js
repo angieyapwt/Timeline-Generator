@@ -359,15 +359,14 @@ function renderInputs() {
   const scenario = scenarios[state.scenario];
   const hasSale = scenario.tracks.some((key) => trackMeta[key].side === "sale");
   const hasPurchase = scenario.tracks.some((key) => trackMeta[key].side === "purchase");
+  const isSinglePurchaseReverse = state.mode === "reverse" && hasPurchase && !hasSale && scenario.tracks.length === 1;
   els.forwardInputs.innerHTML = `
     ${hasSale ? dateField("saleIssueDate", "Sale issue OTP date", "First sale milestone") : ""}
     ${hasPurchase ? dateField("purchaseIssueDate", "Purchase issue OTP date", "First purchase milestone") : ""}
   `;
-  els.reverseInputs.innerHTML = `
-    ${hasSale ? dateField("saleCompletionDate", "Sale legal completion date", "CPF refund buffer starts from legal completion") : ""}
-    ${hasPurchase && !hasSale ? dateField("purchaseCompletionDate", "Purchase legal completion date", "System works backward to latest OTP date") : ""}
-    ${hasPurchase && hasSale ? `<div class="field"><span class="field-label">Purchase legal completion date</span><input type="text" value="${displayDate(addCpfBuffer(parseDate(state.dates.saleCompletionDate)))}" disabled /><small>${state.includeBuffer ? `Auto-filled from sale legal completion + ${state.assumptions.cpfBufferDays}-${state.skipWeekends ? "working" : "calendar"}-day CPF buffer.` : "Auto-filled from sale legal completion with 0-day buffer."}</small></div>` : ""}
-  `;
+  els.reverseInputs.innerHTML = isSinglePurchaseReverse
+    ? dateField("purchaseCompletionDate", "Purchase legal completion date", "System works backward to the latest OTP date")
+    : "";
   document.querySelectorAll("[data-date-key]").forEach((input) => {
     input.addEventListener("input", (event) => {
       const clean = event.target.value.replaceAll("-", "").trim();
@@ -551,6 +550,10 @@ function buildChecklist({ tracks }) {
 }
 
 function renderChecklist(result) {
+  if (state.mode === "reverse") {
+    els.timelineChecklist.innerHTML = "";
+    return;
+  }
   const items = buildChecklist(result);
   const hasWarning = items.some((item) => !item.ok);
   els.timelineChecklist.innerHTML = `
